@@ -1,11 +1,12 @@
-import type { ContentType, CreateContentRequest, ExecutionPlan, ExecutionStep, ContentPiece, BrandReview } from "../../shared/types.js";
+import type { ContentType, CreateContentRequest, ExecutionPlan, ExecutionStep, ContentPiece } from "../../shared/types.js";
 import { copywriterAgent } from "./copywriter.js";
 import { socialMediaManagerAgent } from "./social-media-manager.js";
 import { designerAgent } from "./designer.js";
 import { brandGuardianAgent, buildReviewMessage } from "./brand-guardian.js";
 import { randomUUID } from "crypto";
+import { parseBrandReview } from "./orchestrator-utils.js";
 
-const SOCIAL_TYPES: ContentType[] = ["linkedin-post", "instagram-post", "social-card"];
+const SOCIAL_TYPES: ContentType[] = ["linkedin-post", "instagram-post", "social-card", "whatsapp", "facebook-ad"];
 const EMAIL_TYPES: ContentType[] = ["email", "email-sequence"];
 
 function getContentAgent(type: ContentType) {
@@ -19,7 +20,7 @@ function getContentAgentName(type: ContentType): string {
 }
 
 function needsDesigner(type: ContentType): boolean {
-  return SOCIAL_TYPES.includes(type) || EMAIL_TYPES.includes(type);
+  return SOCIAL_TYPES.includes(type) || EMAIL_TYPES.includes(type) || type === "landing-page";
 }
 
 export interface OrchestratorCallbacks {
@@ -147,6 +148,8 @@ function buildDesignerPrompt(request: CreateContentRequest, content: string): st
     "linkedin-post": "1200x628px",
     "instagram-post": "1080x1080px",
     "social-card": "1200x628px",
+    "whatsapp": "1080x1080px",
+    "facebook-ad": "1200x628px",
     "email": "600px width",
     "email-sequence": "600px width",
   };
@@ -174,6 +177,8 @@ function buildCopywriterPrompt(request: CreateContentRequest): string {
     "email-sequence": "Escribe una secuencia de emails de nurturing. Cada email con subject y body.",
     "landing-page": "Escribe el copy de una landing page. Hero section con headline + subheadline, beneficios, prueba social, CTA.",
     "social-card": "Escribe el texto para una tarjeta social visual. Headline corto e impactante + subtítulo con dato.",
+    "whatsapp": "Escribe una pieza compartible por WhatsApp. Corta, impactante, con emoji sparingly. Debe provocar que la reenvíen. Incluye CTA con link.",
+    "facebook-ad": "Escribe el copy para un anuncio de Facebook/Instagram Ads. Headline corto + texto principal + CTA. Formato: hook en primera línea, beneficio claro, urgencia sutil.",
   };
 
   return `${typeInstructions[request.type]}
@@ -182,29 +187,4 @@ Línea de negocio: ${request.line}
 Audiencia: ${request.audience}
 Tema: ${request.topic}
 ${request.additionalContext ? `Contexto adicional: ${request.additionalContext}` : ""}`;
-}
-
-function parseBrandReview(raw: string): BrandReview {
-  try {
-    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, raw];
-    const parsed = JSON.parse(jsonMatch[1]!.trim());
-    return {
-      approved: parsed.approved ?? false,
-      score: parsed.score ?? 0,
-      checks: (parsed.checks ?? []).map((c: Record<string, unknown>) => ({
-        name: String(c.name ?? ""),
-        passed: Boolean(c.passed),
-        detail: String(c.detail ?? ""),
-        severity: (c.severity as "info" | "warning" | "error") ?? "info",
-      })),
-      reviewedAt: new Date().toISOString(),
-    };
-  } catch {
-    return {
-      approved: false,
-      score: 0,
-      checks: [{ name: "Parse Error", passed: false, detail: "Could not parse brand review response", severity: "error" as const }],
-      reviewedAt: new Date().toISOString(),
-    };
-  }
 }
