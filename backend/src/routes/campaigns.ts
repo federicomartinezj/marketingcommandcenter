@@ -2,6 +2,7 @@ import { Router } from "express";
 import { randomUUID } from "crypto";
 import type { Campaign, CreateCampaignRequest } from "../../shared/types.js";
 import { analyzeCampaignBrief, generateCampaignContent } from "../agents/campaign-orchestrator.js";
+import { streamZip } from "../export/campaign-exporter.js";
 
 const router = Router();
 const campaignStore: Map<string, Campaign> = new Map();
@@ -52,6 +53,18 @@ router.get("/", (req, res) => {
   }
 
   res.json(items);
+});
+
+// GET /:id/export — Download ZIP
+router.get("/:id/export", (req, res) => {
+  const campaign = campaignStore.get(req.params.id);
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (campaign.status !== "approved" && campaign.status !== "exported") {
+    res.status(400).json({ error: "Campaign must be approved to export" }); return;
+  }
+  campaign.status = "exported";
+  campaignStore.set(campaign.id, campaign);
+  streamZip(campaign, res);
 });
 
 // GET /:id — Get campaign detail
