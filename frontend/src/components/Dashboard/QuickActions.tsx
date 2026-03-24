@@ -1,15 +1,15 @@
 interface QuickActionsProps {
-  onCreateContent?: () => void;
+  onCreateContent?: (type?: string) => void;
 }
 
 export function QuickActions({ onCreateContent }: QuickActionsProps) {
   const actions = [
     { label: "Nueva Campaña", icon: "📋", onClick: undefined },
-    { label: "Crear Contenido", icon: "✍️", onClick: onCreateContent },
+    { label: "Crear Contenido", icon: "✍️", onClick: () => onCreateContent?.() },
     { label: "Reporte", icon: "📊", onClick: undefined },
-    { label: "Email Sequence", icon: "📧", onClick: undefined },
-    { label: "Post Social", icon: "📱", onClick: undefined },
-    { label: "Blog Post", icon: "📝", onClick: undefined },
+    { label: "Email Sequence", icon: "📧", onClick: () => onCreateContent?.("email-sequence") },
+    { label: "Post Social", icon: "📱", onClick: () => onCreateContent?.("linkedin-post") },
+    { label: "Blog Post", icon: "📝", onClick: () => onCreateContent?.("blog-post") },
     { label: "Análisis Competitivo", icon: "🔍", onClick: undefined },
     { label: "Calendario Editorial", icon: "📅", onClick: undefined },
   ];

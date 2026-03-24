@@ -4,13 +4,14 @@ import { Dashboard } from "./components/Dashboard/Dashboard";
 import { CreateContentModal } from "./components/ContentStudio/CreateContentModal";
 
 export default function App() {
-  const [showCreateContent, setShowCreateContent] = useState(false);
+  const [createContentType, setCreateContentType] = useState<string | undefined>();
+  const showCreateContent = createContentType !== undefined;
 
   return (
     <Layout>
-      <Dashboard onCreateContent={() => setShowCreateContent(true)} />
+      <Dashboard onCreateContent={(type) => setCreateContentType(type || "blog-post")} />
       {showCreateContent && (
-        <CreateContentModal onClose={() => setShowCreateContent(false)} />
+        <CreateContentModal initialType={createContentType} onClose={() => setCreateContentType(undefined)} />
       )}
     </Layout>
   );

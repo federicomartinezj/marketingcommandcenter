@@ -22,11 +22,12 @@ const BUSINESS_LINES = [
 
 interface CreateContentModalProps {
   onClose: () => void;
+  initialType?: string;
 }
 
-export function CreateContentModal({ onClose }: CreateContentModalProps) {
+export function CreateContentModal({ onClose, initialType }: CreateContentModalProps) {
   const { isCreating, currentPiece, error, createNewContent, clearCurrent } = useContentStore();
-  const [type, setType] = useState("blog-post");
+  const [type, setType] = useState(initialType || "blog-post");
   const [line, setLine] = useState("OPL");
   const [audience, setAudience] = useState("");
   const [topic, setTopic] = useState("");

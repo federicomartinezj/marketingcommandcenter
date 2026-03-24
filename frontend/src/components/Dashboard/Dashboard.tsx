@@ -4,7 +4,7 @@ import { AgentPanel } from "./AgentPanel";
 import { ActivityFeed } from "./ActivityFeed";
 
 interface DashboardProps {
-  onCreateContent?: () => void;
+  onCreateContent?: (type?: string) => void;
 }
 
 export function Dashboard({ onCreateContent }: DashboardProps) {
