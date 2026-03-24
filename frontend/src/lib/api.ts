@@ -8,6 +8,7 @@ export interface ContentPiece {
   audience: string;
   status: string;
   content: string;
+  designHtml?: string;
   brandReview?: {
     approved: boolean;
     score: number;

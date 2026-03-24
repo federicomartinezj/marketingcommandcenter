@@ -40,6 +40,7 @@ export interface ContentPiece {
   audience: string;
   status: ContentStatus;
   content: string;
+  designHtml?: string;
   brandReview?: BrandReview;
   agentsInvolved: AgentRole[];
   createdAt: string;
