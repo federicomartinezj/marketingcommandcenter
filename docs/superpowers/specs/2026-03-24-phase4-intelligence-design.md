@@ -37,18 +37,19 @@ Lavanti's Marketing Command Center can now create individual content (Phase 1-2)
 
 ```typescript
 type IntelReportType = "market-research" | "internal-analysis";
-type IntelReportStatus = "generating" | "ready" | "archived";
+type IntelReportStatus = "generating" | "ready" | "error" | "archived";
 
 interface IntelReport {
   id: string;
   type: IntelReportType;
   title: string;
   summary: string;
-  line?: BusinessLine;
+  line?: BusinessLine;              // Optional — omit for cross-line reports. When omitted, brand context loads "OPL" as default.
   query: string;
   trends: Trend[];
   opportunities: Opportunity[];
   sources: Source[];
+  errorMessage?: string;            // Populated when status is "error"
   status: IntelReportStatus;
   createdAt: string;
 }
@@ -97,6 +98,18 @@ interface Source {
 
 ```
 generating → ready → archived
+generating → error
+```
+
+### Shared Types Addition
+
+All types above (`IntelReport`, `IntelReportType`, `IntelReportStatus`, `Trend`, `TrendRelevance`, `Opportunity`, `OpportunityUrgency`, `Source`, `IntelCallbacks`) must be added to `shared/types.ts` under a `// === Phase 4: Intelligence Types ===` section. Additionally add:
+
+```typescript
+interface CreateResearchRequest {
+  query: string;
+  line?: BusinessLine;
+}
 ```
 
 ---
@@ -108,23 +121,29 @@ generating → ready → archived
 - **Role:** Market researcher. Generates smart search queries, processes web results, crosses with brand knowledge, produces structured report.
 - **When:** On-demand research requests and monthly analysis.
 - **Input:** Research topic/query + optional business line + brand context
-- **Process:**
-  1. Generates 3-5 targeted search queries from the research topic
-  2. Backend executes queries via Tavily API (in parallel)
-  3. Agent receives aggregated search results + brand knowledge
-  4. Produces structured IntelReport JSON
-- **Output format:** JSON parsed into IntelReport fields:
-  ```typescript
-  {
-    title: string,
-    summary: string,
-    trends: Trend[],
-    opportunities: Opportunity[],  // Each with campaignBrief
-    sources: Source[]
-  }
-  ```
-- **Brand context:** Loaded via `loadAllBrandContext(line)` like existing agents.
-- **Parsing:** Orchestrator parses JSON from `AgentOutput.content`. If parsing fails, report status stays `generating` and error is surfaced.
+- **Process:** The agent is called TWICE with different prompts:
+
+  **Call 1 — Query Generation:**
+  - Prompt: "Generate search queries for: {topic}"
+  - Output format: JSON `{ queries: string[] }` (3-5 targeted queries)
+  - Example: `{ "queries": ["nuevos hoteles Cartagena 2026", "inversión hotelera Colombia Caribe"] }`
+
+  **Call 2 — Analysis & Report:**
+  - Prompt: "Analyze these search results and produce a market report: {aggregated results}"
+  - Receives: search results from Tavily + brand context
+  - Output format: JSON parsed into IntelReport fields:
+    ```typescript
+    {
+      title: string,
+      summary: string,
+      trends: Trend[],
+      opportunities: Opportunity[],  // Each with campaignBrief
+      sources: Source[]
+    }
+    ```
+
+- **Brand context:** Loaded via `loadAllBrandContext(line ?? "OPL")`. When line is omitted, defaults to OPL for general brand context.
+- **Parsing:** Orchestrator parses JSON from `AgentOutput.content`. If parsing fails, report status becomes `"error"` with `errorMessage` set.
 
 ### Data Analyst Agent
 
@@ -207,7 +226,7 @@ POST   /api/intel/monthly                          # Run monthly analysis for al
 
 1. `POST /intel/reports/:id/create-campaign` with `{ opportunityId: "..." }`
 2. Finds opportunity's `campaignBrief` and `suggestedLine`
-3. Creates campaign via existing campaign creation flow (POST /campaigns + POST /campaigns/:id/analyze)
+3. Makes internal HTTP call to `POST /api/campaigns` + `POST /api/campaigns/:id/analyze` (same server, localhost). This avoids needing to share the campaign store module — the intel routes use the campaigns API as a client.
 4. Sets `opportunity.campaignId` on the report
 5. Returns the created campaign
 
@@ -256,9 +275,24 @@ Added to Layout navigation alongside Dashboard, Calendario, Contenido, Campañas
 **Section 3 — Actions per report**
 - "Archivar" button to hide old reports
 
+### Zustand Store: `useIntelStore`
+
+```typescript
+{
+  reports: IntelReport[];
+  isLoading: boolean;
+  error: string | null;
+  fetchReports(): Promise<void>;
+  runResearch(query: string, line?: string): Promise<void>;
+  runInternalAnalysis(): Promise<void>;
+  createCampaignFromOpportunity(reportId: string, opportunityId: string): Promise<void>;
+  archiveReport(reportId: string): Promise<void>;
+}
+```
+
 ### Dashboard Integration
 
-- Update StatCard "Campañas Activas" or add new card: "Oportunidades Detectadas" showing count of unactioned opportunities across all ready reports
+- New StatCard "Oportunidades Detectadas" showing count of opportunities where `campaignId` is undefined across `ready` reports
 - Activity feed shows new reports: "Reporte de mercado generado: Costa Caribe — 4 oportunidades detectadas"
 
 ---
