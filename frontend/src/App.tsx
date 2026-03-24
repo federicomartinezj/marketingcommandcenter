@@ -6,6 +6,7 @@ import { CalendarView } from "./components/Calendar/CalendarView";
 import { CreateContentModal } from "./components/ContentStudio/CreateContentModal";
 import { ContentList } from "./components/ContentStudio/ContentList";
 import { CampaignWizard } from "./components/Campaigns/CampaignWizard";
+import { CampaignList } from "./components/Campaigns/CampaignList";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
@@ -23,9 +24,7 @@ export default function App() {
       )}
       {currentView === "calendar" && <CalendarView />}
       {currentView === "content" && <ContentList />}
-      {currentView === "campaigns" && (
-        <div className="text-center py-12 text-gray-500">Lista de campañas — próximamente</div>
-      )}
+      {currentView === "campaigns" && <CampaignList />}
       {showCreateContent && (
         <CreateContentModal initialType={createContentType} onClose={() => setCreateContentType(undefined)} />
       )}

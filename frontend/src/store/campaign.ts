@@ -64,7 +64,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       const readyCount = updated.channels.filter((c) => c.status === "ready").length;
       addActivity("success", `${readyCount} canales generados para "${updated.concept}"`);
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err), isLoading: false });
+      set({ error: err instanceof Error ? err.message : String(err), isLoading: false, wizardStep: "plan" });
       addActivity("error", `Error generando campaña: ${err instanceof Error ? err.message : String(err)}`);
     }
   },

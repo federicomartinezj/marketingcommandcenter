@@ -126,6 +126,7 @@ router.put("/:id/plan", (req, res) => {
 
 // POST /:id/generate — Trigger Phase 2+3 (must be "planned" status)
 router.post("/:id/generate", async (req, res) => {
+  req.setTimeout(300000); // 5 minutes — generation makes many Claude API calls
   const campaign = campaignStore.get(req.params.id);
   if (!campaign) {
     res.status(404).json({ error: "Campaign not found" });
@@ -140,11 +141,13 @@ router.post("/:id/generate", async (req, res) => {
   campaignStore.set(generating.id, generating);
 
   try {
+    console.log(`[generate] Starting generation for campaign ${campaign.id} with ${campaign.channels.length} channels...`);
     const generated = await generateCampaignContent(generating);
+    console.log(`[generate] Completed! ${generated.channels.filter(c => c.status === "ready").length} channels ready`);
     campaignStore.set(generated.id, generated);
     res.json(generated);
   } catch (error) {
-    console.error("Campaign generate error:", error);
+    console.error("[generate] Campaign generate error:", error);
     const reset: Campaign = { ...generating, status: "planned", updatedAt: new Date().toISOString() };
     campaignStore.set(reset.id, reset);
     res.status(500).json({ error: "Failed to generate campaign content" });
