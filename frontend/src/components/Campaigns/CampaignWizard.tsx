@@ -1,6 +1,8 @@
 import { useCampaignStore } from "../../store/campaign";
 import { BriefScreen } from "./BriefScreen";
 import { PlanScreen } from "./PlanScreen";
+import { GenerationScreen } from "./GenerationScreen";
+import { ReviewScreen } from "./ReviewScreen";
 
 interface CampaignWizardProps {
   onClose: () => void;
@@ -9,7 +11,7 @@ interface CampaignWizardProps {
 const STEPS = ["brief", "plan", "generating", "review"] as const;
 
 export function CampaignWizard({ onClose }: CampaignWizardProps) {
-  const { wizardStep, current, isLoading, error, createCampaign, generateContent, clearCurrent } = useCampaignStore();
+  const { wizardStep, current, isLoading, error, createCampaign, generateContent, selectVariant, regenerateChannel, approveCampaign, clearCurrent } = useCampaignStore();
 
   const handleClose = () => { clearCurrent(); onClose(); };
 
@@ -35,8 +37,11 @@ export function CampaignWizard({ onClose }: CampaignWizardProps) {
         <div className="p-6">
           {wizardStep === "brief" && <BriefScreen onSubmit={createCampaign} isLoading={isLoading} />}
           {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateContent} isLoading={isLoading} />}
-          {wizardStep === "generating" && <div className="text-center text-gray-500 py-12">Generando contenido...</div>}
-          {wizardStep === "review" && <div className="text-center text-gray-500 py-12">Revisión — next task</div>}
+          {wizardStep === "generating" && current && <GenerationScreen campaign={current} />}
+          {wizardStep === "review" && current && (
+            <ReviewScreen campaign={current} onSelectVariant={selectVariant}
+              onRegenerate={regenerateChannel} onApprove={approveCampaign} isLoading={isLoading} />
+          )}
         </div>
       </div>
     </div>
