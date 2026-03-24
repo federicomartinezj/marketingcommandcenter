@@ -2,12 +2,14 @@ import { StatCard } from "./StatCard";
 import { QuickActions } from "./QuickActions";
 import { AgentPanel } from "./AgentPanel";
 import { ActivityFeed } from "./ActivityFeed";
+import { CampaignCards } from "./CampaignCards";
 
 interface DashboardProps {
   onCreateContent?: (type?: string) => void;
+  onCreateCampaign?: () => void;
 }
 
-export function Dashboard({ onCreateContent }: DashboardProps) {
+export function Dashboard({ onCreateContent, onCreateCampaign }: DashboardProps) {
   return (
     <div className="space-y-8">
       {/* Stats Row */}
@@ -18,8 +20,11 @@ export function Dashboard({ onCreateContent }: DashboardProps) {
         <StatCard label="Brand Score" value="94/100" icon="🛡️" />
       </div>
 
+      {/* Campaign Cards */}
+      <CampaignCards />
+
       {/* Quick Actions */}
-      <QuickActions onCreateContent={onCreateContent} />
+      <QuickActions onCreateContent={onCreateContent} onCreateCampaign={onCreateCampaign} />
 
       {/* Agents */}
       <AgentPanel />

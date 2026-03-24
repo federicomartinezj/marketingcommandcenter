@@ -1,10 +1,11 @@
 interface QuickActionsProps {
   onCreateContent?: (type?: string) => void;
+  onCreateCampaign?: () => void;
 }
 
-export function QuickActions({ onCreateContent }: QuickActionsProps) {
+export function QuickActions({ onCreateContent, onCreateCampaign }: QuickActionsProps) {
   const actions = [
-    { label: "Nueva Campaña", icon: "📋", onClick: undefined },
+    { label: "Nueva Campaña", icon: "📋", onClick: () => onCreateCampaign?.() },
     { label: "Crear Contenido", icon: "✍️", onClick: () => onCreateContent?.() },
     { label: "Reporte", icon: "📊", onClick: undefined },
     { label: "Email Sequence", icon: "📧", onClick: () => onCreateContent?.("email-sequence") },
