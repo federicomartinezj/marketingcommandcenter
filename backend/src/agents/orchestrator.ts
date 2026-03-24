@@ -1,7 +1,26 @@
-import type { ContentType, CreateContentRequest, ExecutionPlan, ExecutionStep, ContentPiece, BrandReview, BrandCheck } from "../../shared/types.js";
+import type { ContentType, CreateContentRequest, ExecutionPlan, ExecutionStep, ContentPiece, BrandReview } from "../../shared/types.js";
 import { copywriterAgent } from "./copywriter.js";
+import { socialMediaManagerAgent } from "./social-media-manager.js";
+import { designerAgent } from "./designer.js";
 import { brandGuardianAgent, buildReviewMessage } from "./brand-guardian.js";
 import { randomUUID } from "crypto";
+
+const SOCIAL_TYPES: ContentType[] = ["linkedin-post", "instagram-post", "social-card"];
+const EMAIL_TYPES: ContentType[] = ["email", "email-sequence"];
+
+function getContentAgent(type: ContentType) {
+  if (SOCIAL_TYPES.includes(type)) return socialMediaManagerAgent;
+  return copywriterAgent;
+}
+
+function getContentAgentName(type: ContentType): string {
+  if (SOCIAL_TYPES.includes(type)) return "social-media-manager";
+  return "copywriter";
+}
+
+function needsDesigner(type: ContentType): boolean {
+  return SOCIAL_TYPES.includes(type) || EMAIL_TYPES.includes(type);
+}
 
 export interface OrchestratorCallbacks {
   onPlanCreated?: (plan: ExecutionPlan) => void;
@@ -15,10 +34,19 @@ export async function orchestrateContentCreation(
 ): Promise<ContentPiece> {
   const planId = randomUUID();
 
+  const contentAgentName = getContentAgentName(request.type);
+  const contentAgent = getContentAgent(request.type);
+  const includeDesigner = needsDesigner(request.type);
+
   const steps: ExecutionStep[] = [
-    { agent: "copywriter", task: `Generate ${request.type} about: ${request.topic}`, status: "idle" },
-    { agent: "brand-guardian", task: "Review content for brand compliance", status: "idle" },
+    { agent: contentAgentName, task: `Generate ${request.type} about: ${request.topic}`, status: "idle" },
   ];
+
+  if (includeDesigner) {
+    steps.push({ agent: "designer", task: "Generate visual HTML/CSS for content", status: "idle" });
+  }
+
+  steps.push({ agent: "brand-guardian", task: "Review content for brand compliance", status: "idle" });
 
   const plan: ExecutionPlan = {
     id: planId,
@@ -35,23 +63,46 @@ export async function orchestrateContentCreation(
 
   callbacks?.onPlanCreated?.(plan);
 
-  // Step 1: Copywriter generates content
-  steps[0].status = "working";
-  callbacks?.onStepStarted?.(0, steps[0]);
+  let stepIndex = 0;
+
+  // Step 1: Content agent generates content
+  steps[stepIndex].status = "working";
+  callbacks?.onStepStarted?.(stepIndex, steps[stepIndex]);
 
   const copywriterPrompt = buildCopywriterPrompt(request);
-  const copyResult = await copywriterAgent.run({
+  const copyResult = await contentAgent.run({
     line: request.line,
     userMessage: copywriterPrompt,
   });
 
-  steps[0].status = "done";
-  steps[0].output = copyResult.content;
-  callbacks?.onStepCompleted?.(0, steps[0]);
+  steps[stepIndex].status = "done";
+  steps[stepIndex].output = copyResult.content;
+  callbacks?.onStepCompleted?.(stepIndex, steps[stepIndex]);
+  stepIndex++;
 
-  // Step 2: Brand Guardian reviews
-  steps[1].status = "working";
-  callbacks?.onStepStarted?.(1, steps[1]);
+  // Step 2 (optional): Designer generates HTML
+  let designHtml: string | undefined;
+
+  if (includeDesigner) {
+    steps[stepIndex].status = "working";
+    callbacks?.onStepStarted?.(stepIndex, steps[stepIndex]);
+
+    const designerPrompt = buildDesignerPrompt(request, copyResult.content);
+    const designResult = await designerAgent.run({
+      line: request.line,
+      userMessage: designerPrompt,
+    });
+
+    designHtml = designResult.content;
+    steps[stepIndex].status = "done";
+    steps[stepIndex].output = designResult.content;
+    callbacks?.onStepCompleted?.(stepIndex, steps[stepIndex]);
+    stepIndex++;
+  }
+
+  // Final step: Brand Guardian reviews
+  steps[stepIndex].status = "working";
+  callbacks?.onStepStarted?.(stepIndex, steps[stepIndex]);
 
   const reviewResult = await brandGuardianAgent.run({
     line: request.line,
@@ -63,13 +114,17 @@ export async function orchestrateContentCreation(
     }),
   });
 
-  steps[1].status = "done";
-  steps[1].output = reviewResult.content;
-  callbacks?.onStepCompleted?.(1, steps[1]);
+  steps[stepIndex].status = "done";
+  steps[stepIndex].output = reviewResult.content;
+  callbacks?.onStepCompleted?.(stepIndex, steps[stepIndex]);
 
   const brandReview = parseBrandReview(reviewResult.content);
 
   plan.status = "done";
+
+  const agentsInvolved: string[] = ["orchestrator", contentAgentName];
+  if (includeDesigner) agentsInvolved.push("designer");
+  agentsInvolved.push("brand-guardian");
 
   return {
     id: randomUUID(),
@@ -79,11 +134,35 @@ export async function orchestrateContentCreation(
     audience: request.audience,
     status: brandReview.approved ? "approved" : "in-review",
     content: copyResult.content,
+    designHtml,
     brandReview,
-    agentsInvolved: ["orchestrator", "copywriter", "brand-guardian"],
+    agentsInvolved,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function buildDesignerPrompt(request: CreateContentRequest, content: string): string {
+  const platformDimensions: Record<string, string> = {
+    "linkedin-post": "1200x628px",
+    "instagram-post": "1080x1080px",
+    "social-card": "1200x628px",
+    "email": "600px width",
+    "email-sequence": "600px width",
+  };
+  const dims = platformDimensions[request.type] || "1200x628px";
+
+  return `Genera el HTML/CSS para un asset visual de marketing.
+
+Tipo: ${request.type}
+Línea: ${request.line}
+Dimensiones: ${dims}
+Audiencia: ${request.audience}
+
+Contenido del post/email:
+${content}
+
+Genera HTML completo con estilos inline que pueda renderizarse directamente. Usa la paleta correcta para la línea ${request.line}. Fuente: Manrope.`;
 }
 
 function buildCopywriterPrompt(request: CreateContentRequest): string {
