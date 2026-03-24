@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useContentStore } from "../../store/content";
 import { ContentPreview } from "./ContentPreview";
 import { BrandReviewCard } from "./BrandReviewCard";
+import { SocialCardPreview } from "./SocialCardPreview";
 
 const CONTENT_TYPES = [
   { value: "blog-post", label: "Blog Post" },
@@ -59,6 +60,13 @@ export function CreateContentModal({ onClose, initialType }: CreateContentModalP
           {currentPiece ? (
             <div className="space-y-6">
               <ContentPreview piece={currentPiece} />
+              {["linkedin-post", "instagram-post", "social-card"].includes(currentPiece.type) && (
+                <SocialCardPreview
+                  line={currentPiece.line}
+                  platform={currentPiece.type}
+                  title={currentPiece.title}
+                />
+              )}
               {currentPiece.brandReview && (
                 <BrandReviewCard review={currentPiece.brandReview} />
               )}
@@ -130,8 +138,16 @@ export function CreateContentModal({ onClose, initialType }: CreateContentModalP
                 <div className="bg-electric-blue/5 border border-electric-blue/20 rounded-lg p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm text-electric-blue font-medium">
                     <span className="animate-spin">🔄</span>
-                    Copywriter generando contenido...
+                    {["linkedin-post", "instagram-post", "social-card"].includes(type)
+                      ? "Social Media Manager generando contenido..."
+                      : "Copywriter generando contenido..."}
                   </div>
+                  {["linkedin-post", "instagram-post", "social-card", "email", "email-sequence"].includes(type) && (
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <span>⏳</span>
+                      Designer preparando assets visuales...
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span>⏳</span>
                     Brand Guardian en espera...
