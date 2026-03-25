@@ -21,6 +21,7 @@ export default function App() {
         <Dashboard
           onCreateContent={(type) => setCreateContentType(type || "blog-post")}
           onCreateCampaign={() => setShowCampaignWizard(true)}
+          onNavigate={(view) => setCurrentView(view as ViewType)}
         />
       )}
       {currentView === "calendar" && <CalendarView />}

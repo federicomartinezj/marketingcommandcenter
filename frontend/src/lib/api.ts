@@ -51,3 +51,13 @@ export async function listContent(): Promise<ContentPiece[]> {
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
+
+export async function updateContentStatus(id: string, status: string): Promise<ContentPiece> {
+  const res = await fetch(`${BASE}/content/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}

@@ -39,4 +39,25 @@ router.get("/:id", (req, res) => {
   res.json(item);
 });
 
+// PUT /:id/status — Update content status (approve, reject, publish)
+router.put("/:id/status", (req, res) => {
+  const item = contentStore.get(req.params.id) as Record<string, unknown> | undefined;
+  if (!item) {
+    res.status(404).json({ error: "Content not found" });
+    return;
+  }
+
+  const { status } = req.body;
+  const validStatuses = ["draft", "in-review", "approved", "rejected", "published"];
+  if (!validStatuses.includes(status)) {
+    res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+    return;
+  }
+
+  item.status = status;
+  item.updatedAt = new Date().toISOString();
+  contentStore.set(req.params.id, item);
+  res.json(item);
+});
+
 export { router as contentRouter };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useContentStore } from "../../store/content";
-import { listContent } from "../../lib/api";
+import { listContent, updateContentStatus as apiUpdateStatus } from "../../lib/api";
 import type { ContentPiece } from "../../lib/api";
 import Markdown from "react-markdown";
 
@@ -30,6 +30,15 @@ export function ContentList() {
   useEffect(() => {
     listContent().then(setAllPieces).catch(() => {});
   }, []);
+
+  const updateContentStatus = async (id: string, status: string) => {
+    try {
+      const updated = await apiUpdateStatus(id, status);
+      setAllPieces((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch {
+      // silently fail for now
+    }
+  };
 
   // Merge API pieces with store pieces (store pieces are newer, created in this session)
   const pieces = [...storePieces];
@@ -153,6 +162,40 @@ export function ContentList() {
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Approval actions */}
+                    {(piece.status === "in-review" || piece.status === "draft") && (
+                      <div className="mt-4 flex gap-3">
+                        <button
+                          onClick={() => updateContentStatus(piece.id, "approved")}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+                        >
+                          Aprobar
+                        </button>
+                        <button
+                          onClick={() => updateContentStatus(piece.id, "rejected")}
+                          className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors"
+                        >
+                          Rechazar
+                        </button>
+                        <button
+                          onClick={() => updateContentStatus(piece.id, "published")}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors"
+                        >
+                          Marcar Publicado
+                        </button>
+                      </div>
+                    )}
+                    {piece.status === "approved" && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => updateContentStatus(piece.id, "published")}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors"
+                        >
+                          Marcar como Publicado
+                        </button>
                       </div>
                     )}
 

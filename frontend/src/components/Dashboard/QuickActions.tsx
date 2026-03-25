@@ -1,18 +1,19 @@
 interface QuickActionsProps {
   onCreateContent?: (type?: string) => void;
   onCreateCampaign?: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-export function QuickActions({ onCreateContent, onCreateCampaign }: QuickActionsProps) {
+export function QuickActions({ onCreateContent, onCreateCampaign, onNavigate }: QuickActionsProps) {
   const actions = [
     { label: "Nueva Campaña", icon: "📋", onClick: () => onCreateCampaign?.() },
     { label: "Crear Contenido", icon: "✍️", onClick: () => onCreateContent?.() },
-    { label: "Reporte", icon: "📊", onClick: undefined },
+    { label: "Investigar Mercado", icon: "🔍", onClick: () => onNavigate?.("intel") },
     { label: "Email Sequence", icon: "📧", onClick: () => onCreateContent?.("email-sequence") },
     { label: "Post Social", icon: "📱", onClick: () => onCreateContent?.("linkedin-post") },
     { label: "Blog Post", icon: "📝", onClick: () => onCreateContent?.("blog-post") },
-    { label: "Análisis Competitivo", icon: "🔍", onClick: undefined },
-    { label: "Calendario Editorial", icon: "📅", onClick: undefined },
+    { label: "Ver Campañas", icon: "📊", onClick: () => onNavigate?.("campaigns") },
+    { label: "Calendario", icon: "📅", onClick: () => onNavigate?.("calendar") },
   ];
 
   return (
@@ -23,8 +24,7 @@ export function QuickActions({ onCreateContent, onCreateCampaign }: QuickActions
           <button
             key={action.label}
             onClick={action.onClick}
-            disabled={!action.onClick}
-            className="bg-near-black text-white rounded-lg px-4 py-3 text-sm font-medium hover:bg-electric-blue transition-colors disabled:opacity-50 disabled:hover:bg-near-black flex items-center gap-2"
+            className="bg-near-black text-white rounded-lg px-4 py-3 text-sm font-medium hover:bg-electric-blue transition-colors flex items-center gap-2"
           >
             <span>{action.icon}</span>
             <span>{action.label}</span>
