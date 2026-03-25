@@ -90,7 +90,7 @@ export async function generateCampaignContent(
       if (needsDesigner(channelPlan.channel)) {
         const designResult = await designerAgent.run({
           line: campaign.line,
-          userMessage: `Genera HTML/CSS para ${channelPlan.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${variants[0].content}`,
+          userMessage: `Genera HTML/CSS para ${channelPlan.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${variants[0].content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.`,
         });
         designHtml = designResult.content;
       }
