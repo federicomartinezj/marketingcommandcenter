@@ -4,6 +4,7 @@ import cors from "cors";
 import { contentRouter } from "./routes/content.js";
 import { calendarRouter } from "./routes/calendar.js";
 import { campaignRouter } from "./routes/campaigns.js";
+import { intelRouter } from "./routes/intel.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/content", contentRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/campaigns", campaignRouter);
+app.use("/api/intel", intelRouter);
 
 app.listen(PORT, () => {
   console.log(`Lavanti Marketing API running on port ${PORT}`);
