@@ -7,6 +7,7 @@ import { CreateContentModal } from "./components/ContentStudio/CreateContentModa
 import { ContentList } from "./components/ContentStudio/ContentList";
 import { CampaignWizard } from "./components/Campaigns/CampaignWizard";
 import { CampaignList } from "./components/Campaigns/CampaignList";
+import { IntelView } from "./components/Intel/IntelView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
@@ -25,6 +26,7 @@ export default function App() {
       {currentView === "calendar" && <CalendarView />}
       {currentView === "content" && <ContentList />}
       {currentView === "campaigns" && <CampaignList />}
+      {currentView === "intel" && <IntelView />}
       {showCreateContent && (
         <CreateContentModal initialType={createContentType} onClose={() => setCreateContentType(undefined)} />
       )}

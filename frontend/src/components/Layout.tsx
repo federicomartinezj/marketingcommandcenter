@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type ViewType = "dashboard" | "calendar" | "content" | "campaigns";
+export type ViewType = "dashboard" | "calendar" | "content" | "campaigns" | "intel";
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,6 +13,7 @@ const NAV_ITEMS: { view: ViewType; label: string }[] = [
   { view: "calendar", label: "Calendario" },
   { view: "content", label: "Contenido" },
   { view: "campaigns", label: "Campañas" },
+  { view: "intel", label: "Inteligencia" },
 ];
 
 export function Layout({ children, currentView = "dashboard", onViewChange }: LayoutProps) {
