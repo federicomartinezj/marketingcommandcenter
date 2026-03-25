@@ -167,3 +167,60 @@ export interface CreateCampaignRequest {
   audience: string;
   objective: string;
 }
+
+// === Phase 4: Intelligence Types ===
+
+export type IntelReportType = "market-research" | "internal-analysis";
+export type IntelReportStatus = "generating" | "ready" | "error" | "archived";
+export type TrendRelevance = "high" | "medium" | "low";
+export type OpportunityUrgency = "immediate" | "short-term" | "long-term";
+
+export interface Trend {
+  trend: string;
+  evidence: string;
+  relevance: TrendRelevance;
+  source: string;
+}
+
+export interface Opportunity {
+  id: string;
+  description: string;
+  targetSegment: string;
+  suggestedLine: BusinessLine;
+  urgency: OpportunityUrgency;
+  campaignBrief: string;
+  campaignId?: string;
+}
+
+export interface Source {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface IntelReport {
+  id: string;
+  type: IntelReportType;
+  title: string;
+  summary: string;
+  line?: BusinessLine;
+  query: string;
+  trends: Trend[];
+  opportunities: Opportunity[];
+  sources: Source[];
+  errorMessage?: string;
+  status: IntelReportStatus;
+  createdAt: string;
+}
+
+export interface IntelCallbacks {
+  onSearchStarted?: (queries: string[]) => void;
+  onSearchCompleted?: (resultCount: number) => void;
+  onAnalysisStarted?: () => void;
+  onReportReady?: (report: IntelReport) => void;
+}
+
+export interface CreateResearchRequest {
+  query: string;
+  line?: BusinessLine;
+}
