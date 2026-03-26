@@ -3,6 +3,8 @@ import { campaignApi } from "../../lib/campaign-api";
 import type { Campaign } from "../../lib/campaign-api";
 import { FunnelDiagram } from "./FunnelDiagram";
 import { VariantSelector } from "./VariantSelector";
+import { MetricsForm } from "./MetricsForm";
+import { metricsApi } from "../../lib/metrics-api";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-600" },
@@ -18,6 +20,7 @@ export function CampaignList() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [metricsChannel, setMetricsChannel] = useState<string | null>(null);
 
   const fetchAll = async () => {
     const data = await campaignApi.list();
@@ -139,6 +142,27 @@ export function CampaignList() {
                                 variants={channel.variants}
                                 onSelect={(variantId) => handleSelectVariant(campaign.id, channel.id, variantId)}
                               />
+                            </div>
+                          )}
+                          {(campaign.status === "approved" || campaign.status === "exported") && (
+                            <div className="px-3 pb-3">
+                              {metricsChannel !== channel.id ? (
+                                <button
+                                  onClick={() => setMetricsChannel(channel.id)}
+                                  className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+                                >
+                                  Reportar Resultados
+                                </button>
+                              ) : (
+                                <MetricsForm
+                                  channel={channel.channel}
+                                  variants={channel.variants.map((v) => ({ label: v.label, selected: v.selected }))}
+                                  onSubmit={async (data) => {
+                                    await metricsApi.report(campaign.id, channel.id, data);
+                                    setMetricsChannel(null);
+                                  }}
+                                />
+                              )}
                             </div>
                           )}
                         </div>
