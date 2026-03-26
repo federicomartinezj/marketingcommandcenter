@@ -26,6 +26,6 @@ app.use("/api/intel", intelRouter);
 app.use("/api/metrics", metricsRouter);
 app.use("/api/analytics", analyticsRouter);
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`Lavanti Marketing API running on port ${PORT}`);
 });
