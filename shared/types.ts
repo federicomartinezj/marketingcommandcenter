@@ -154,7 +154,7 @@ export interface Campaign {
 }
 
 export interface CampaignCallbacks {
-  onPhaseStarted?: (phase: 1 | 2 | 3) => void;
+  onPhaseStarted?: (phase: 1 | 2 | 3 | 4) => void;
   onChannelStarted?: (channelId: string, channel: ContentType) => void;
   onChannelCompleted?: (channelId: string, channel: ContentType) => void;
   onChannelFailed?: (channelId: string, channel: ContentType, error: string) => void;
@@ -223,4 +223,77 @@ export interface IntelCallbacks {
 export interface CreateResearchRequest {
   query: string;
   line?: BusinessLine;
+}
+
+// === Phase 5: Optimization Types ===
+
+export type MoodboardStatus = "generating" | "ready" | "approved";
+
+export interface Moodboard {
+  id: string;
+  campaignId: string;
+  visualConcept: string;
+  photographyStyle: string;
+  colorEmphasis: string[];
+  typography: string;
+  mood: string;
+  imagePrompts: string[];
+  htmlPreview: string;
+  status: MoodboardStatus;
+  createdAt: string;
+}
+
+export interface PerformanceMetrics {
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;
+  leads?: number;
+  conversions?: number;
+  cost?: number;
+  openRate?: number;
+  bounceRate?: number;
+}
+
+export interface CampaignMetrics {
+  id: string;
+  campaignId: string;
+  channelId: string;
+  variantLabel: "A" | "B" | "C";
+  platform: string;
+  metrics: PerformanceMetrics;
+  notes?: string;
+  reportedAt: string;
+}
+
+export interface PerformanceInsight {
+  finding: string;
+  recommendation: string;
+  impact: "high" | "medium" | "low";
+}
+
+export interface LinePerformance {
+  line: BusinessLine;
+  campaigns: number;
+  avgCTR: number;
+  totalLeads: number;
+  topChannel: string;
+}
+
+export interface VariantAnalysis {
+  label: "A" | "B" | "C";
+  angle: string;
+  avgCTR: number;
+  timesSelected: number;
+  timesPublished: number;
+}
+
+export interface PerformanceReport {
+  id: string;
+  title: string;
+  summary: string;
+  insights: PerformanceInsight[];
+  linePerformance: LinePerformance[];
+  variantAnalysis: VariantAnalysis[];
+  recommendations: string[];
+  createdAt: string;
 }
