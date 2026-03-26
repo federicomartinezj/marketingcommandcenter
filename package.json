@@ -1,0 +1,12 @@
+{
+  "name": "lavanti-marketing-command-center",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd backend && npm install",
+    "build": "echo 'Using tsx runtime'",
+    "start": "cd backend && npx tsx src/index.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
