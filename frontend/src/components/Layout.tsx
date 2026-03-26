@@ -26,8 +26,8 @@ export function Layout({ children, currentView = "dashboard", onViewChange }: La
             <span className="text-electric-blue font-semibold text-sm">MARKETING COMMAND CENTER</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">Directora: Ana</span>
-            <div className="w-8 h-8 rounded-full bg-electric-blue flex items-center justify-center text-sm font-bold">A</div>
+            <span className="text-sm text-gray-400">Directora: Laura Sanín</span>
+            <div className="w-8 h-8 rounded-full bg-electric-blue flex items-center justify-center text-sm font-bold">L</div>
           </div>
         </div>
         {/* Navigation Tabs */}

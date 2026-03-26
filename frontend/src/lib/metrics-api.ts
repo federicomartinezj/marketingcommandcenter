@@ -1,5 +1,6 @@
-const METRICS_BASE = "/api/metrics";
-const ANALYTICS_BASE = "/api/analytics";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const METRICS_BASE = `${API_BASE}/metrics`;
+const ANALYTICS_BASE = `${API_BASE}/analytics`;
 
 export interface CampaignMetrics {
   id: string; campaignId: string; channelId: string;

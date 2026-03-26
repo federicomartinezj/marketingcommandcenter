@@ -1,4 +1,5 @@
-const BASE = "/api/intel";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const BASE = `${API_BASE}/intel`;
 
 export interface IntelTrend {
   trend: string;

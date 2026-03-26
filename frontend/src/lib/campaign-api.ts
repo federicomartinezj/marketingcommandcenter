@@ -1,4 +1,5 @@
-const BASE = "/api/campaigns";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const BASE = `${API_BASE}/campaigns`;
 
 export interface Campaign {
   id: string;
