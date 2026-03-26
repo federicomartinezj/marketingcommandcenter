@@ -76,7 +76,7 @@ router.post("/:id/moodboard", async (req, res) => {
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   try {
-    const moodboard = await generateMoodboard(campaign);
+    const moodboard = await generateMoodboard(campaign.id, campaign.concept, campaign.line, campaign.audience, campaign.objective);
     moodboardStore.set(campaign.id, moodboard);
     res.json(moodboard);
   } catch (error) {
