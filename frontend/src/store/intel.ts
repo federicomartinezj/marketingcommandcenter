@@ -1,16 +1,20 @@
 import { create } from "zustand";
 import { intelApi } from "../lib/intel-api";
 import type { IntelReport } from "../lib/intel-api";
+import { analyticsApi } from "../lib/metrics-api";
 import type { PerformanceReport } from "../lib/metrics-api";
 import { useActivityStore } from "./activity";
 
 interface IntelStore {
   reports: IntelReport[];
+  performanceReports: PerformanceReport[];
   isLoading: boolean;
   error: string | null;
   fetchReports: (filters?: { type?: string; line?: string; status?: string }) => Promise<void>;
+  fetchPerformanceReports: () => Promise<void>;
   runResearch: (query: string, line?: string) => Promise<IntelReport | null>;
   runInternalAnalysis: (systemData: Record<string, unknown>) => Promise<IntelReport | null>;
+  runPerformanceAnalysis: () => Promise<void>;
   createCampaignFromOpportunity: (reportId: string, opportunityId: string) => Promise<void>;
   archiveReport: (id: string) => Promise<void>;
   runMonthly: (systemData?: Record<string, unknown>) => Promise<void>;
@@ -18,6 +22,7 @@ interface IntelStore {
 
 export const useIntelStore = create<IntelStore>((set, get) => ({
   reports: [],
+  performanceReports: [],
   isLoading: false,
   error: null,
 
@@ -28,6 +33,30 @@ export const useIntelStore = create<IntelStore>((set, get) => ({
       set({ reports, isLoading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), isLoading: false });
+    }
+  },
+
+  fetchPerformanceReports: async () => {
+    try {
+      const performanceReports = await analyticsApi.listReports();
+      set({ performanceReports });
+    } catch {
+      // Silently ignore — no data yet is fine
+    }
+  },
+
+  runPerformanceAnalysis: async () => {
+    const addActivity = useActivityStore.getState().addActivity;
+    set({ isLoading: true, error: null });
+    addActivity("working", "Analizando performance de campañas...");
+    try {
+      const report = await analyticsApi.runPerformance();
+      set((state) => ({ performanceReports: [report, ...state.performanceReports], isLoading: false }));
+      addActivity("success", `Reporte de performance listo: "${report.title}"`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      set({ error: message, isLoading: false });
+      addActivity("error", `Error en análisis de performance: ${message}`);
     }
   },
 

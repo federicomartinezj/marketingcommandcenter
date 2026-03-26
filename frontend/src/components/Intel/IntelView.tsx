@@ -2,14 +2,16 @@ import { useEffect } from "react";
 import { useIntelStore } from "../../store/intel";
 import { ResearchBar } from "./ResearchBar";
 import { ReportCard } from "./ReportCard";
+import { PerformanceReportCard } from "./PerformanceReportCard";
 
 export function IntelView() {
-  const { reports, isLoading, error, fetchReports, runResearch, runInternalAnalysis, createCampaignFromOpportunity, archiveReport } =
+  const { reports, isLoading, error, fetchReports, runResearch, runInternalAnalysis, createCampaignFromOpportunity, archiveReport, performanceReports, runPerformanceAnalysis, fetchPerformanceReports } =
     useIntelStore();
 
   useEffect(() => {
     fetchReports();
-  }, [fetchReports]);
+    fetchPerformanceReports();
+  }, [fetchReports, fetchPerformanceReports]);
 
   const handleResearch = (query: string, line?: string) => {
     runResearch(query, line);
@@ -28,6 +30,7 @@ export function IntelView() {
       <ResearchBar
         onResearch={handleResearch}
         onInternalAnalysis={handleInternalAnalysis}
+        onPerformanceAnalysis={runPerformanceAnalysis}
         isLoading={isLoading}
       />
 
@@ -35,6 +38,14 @@ export function IntelView() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3 text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Performance reports */}
+      {performanceReports.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-near-black">Performance</h2>
+          {performanceReports.map((r) => <PerformanceReportCard key={r.id} report={r} />)}
         </div>
       )}
 

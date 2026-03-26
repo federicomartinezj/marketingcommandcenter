@@ -11,10 +11,11 @@ const BUSINESS_LINES = [
 interface ResearchBarProps {
   onResearch: (query: string, line?: string) => void;
   onInternalAnalysis: () => void;
+  onPerformanceAnalysis?: () => void;
   isLoading: boolean;
 }
 
-export function ResearchBar({ onResearch, onInternalAnalysis, isLoading }: ResearchBarProps) {
+export function ResearchBar({ onResearch, onInternalAnalysis, onPerformanceAnalysis, isLoading }: ResearchBarProps) {
   const [query, setQuery] = useState("");
   const [line, setLine] = useState("Todas las líneas");
 
@@ -73,6 +74,10 @@ export function ResearchBar({ onResearch, onInternalAnalysis, isLoading }: Resea
           className="border border-gray-300 text-near-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors whitespace-nowrap"
         >
           Análisis Interno
+        </button>
+
+        <button onClick={onPerformanceAnalysis} disabled={isLoading} className="text-sm text-gray-500 hover:text-purple-500 font-medium ml-4">
+          Analizar Performance
         </button>
       </div>
     </div>
