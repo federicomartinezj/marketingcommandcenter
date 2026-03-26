@@ -144,6 +144,29 @@ export function CampaignList() {
                               />
                             </div>
                           )}
+                          {/* Image Prompts extracted from designHtml */}
+                          {channel.designHtml && (() => {
+                            const prompts = [...channel.designHtml.matchAll(/<!--\s*IMAGE_PROMPT:\s*([\s\S]*?)\s*-->/g)].map(m => m[1].trim());
+                            if (prompts.length === 0) return null;
+                            return (
+                              <div className="px-3 pb-3">
+                                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Prompts de Imagen</div>
+                                <div className="space-y-2">
+                                  {prompts.map((prompt, i) => (
+                                    <div key={i} className="bg-purple-50 rounded-lg p-3 flex items-start gap-2">
+                                      <span className="text-xs text-gray-700 flex-1 font-mono leading-relaxed">{prompt}</span>
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(prompt)}
+                                        className="text-xs text-purple-600 hover:text-purple-800 font-semibold shrink-0"
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                           {(campaign.status === "approved" || campaign.status === "exported") && (
                             <div className="px-3 pb-3">
                               {metricsChannel !== channel.id ? (
