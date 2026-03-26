@@ -28,12 +28,18 @@ Phases 1-4 built content creation, campaigns, and market intelligence. Phase 5 c
 
 ### New Campaign Pipeline Step
 
+Pipeline phases are renumbered from 3 to 4 to accommodate the moodboard step. `CampaignCallbacks.onPhaseStarted` type changes from `(phase: 1 | 2 | 3)` to `(phase: 1 | 2 | 3 | 4)`.
+
 ```
-Phase 1:   Strategy (UX Strategist → concept + funnel)
-Phase 1.5: Visual Direction (NEW — moodboard + visual guide)
-Phase 2:   Generation (pieces receive visual guide as context)
-Phase 3:   Brand Guardian review
+Phase 1: Strategy (UX Strategist → concept + funnel)
+Phase 2: Visual Direction (NEW — moodboard + visual guide)
+Phase 3: Generation (pieces receive visual guide as context)
+Phase 4: Brand Guardian review
 ```
+
+### Design Choice: Moodboard Storage
+
+The `Moodboard` is intentionally kept **separate** from the `Campaign` object, linked only by `campaignId`. This avoids bloating the Campaign interface and keeps the moodboard lifecycle independent (it can be regenerated without affecting campaign state). The moodboard gate is enforced at the frontend level — the "Generar Contenido" button only appears after the moodboard is approved.
 
 ### Moodboard Output
 
@@ -88,9 +94,9 @@ This ensures all pieces share the same visual DNA.
 interface CampaignMetrics {
   id: string;
   campaignId: string;
-  channelId: string;
+  channelId: string;                   // References ChannelPlan.id
   variantLabel: "A" | "B" | "C";
-  platform: string;                  // "linkedin", "facebook", "email", "blog", "whatsapp", "landing-page"
+  platform: string;                    // Mirrors ChannelPlan.channel (ContentType) — redundant but useful for queries without joining
   metrics: PerformanceMetrics;
   notes?: string;
   reportedAt: string;
@@ -129,7 +135,13 @@ In CampaignList, when a campaign is `approved` or `exported`:
 
 ---
 
-## Business Analyst Agent
+## Business Analyst Agent (Upgrade of Data Analyst)
+
+### Relationship to Existing Data Analyst
+
+The existing `data-analyst` agent (Phase 4) handles internal system analysis (content counts, brand scores). In Phase 5, we **upgrade it** — same agent role `"data-analyst"`, but with an expanded system prompt that adds performance analysis capabilities. No new agent role needed. The Data Analyst now has two modes:
+- **Internal analysis** (existing) — system metrics, content gaps
+- **Performance analysis** (new) — post-publication campaign metrics, variant effectiveness, channel ROI
 
 ### Role
 
@@ -169,7 +181,8 @@ interface LinePerformance {
 }
 
 interface VariantAnalysis {
-  label: "A (emocional)" | "B (racional)" | "C (social)";
+  label: "A" | "B" | "C";
+  angle: string;                       // "emocional", "racional", "social" — derived from prompt strategy, not hardcoded in type
   avgCTR: number;
   timesSelected: number;
   timesPublished: number;
@@ -230,7 +243,7 @@ GET    /api/analytics/reports/:id               # Report detail
 
 - `moodboardStore: Map<campaignId, Moodboard>`
 - `metricsStore: Map<id, CampaignMetrics>`
-- `analyticsStore: Map<id, PerformanceReport>` (or reuse intelStore with type "performance")
+- `analyticsStore: Map<id, PerformanceReport>` (own store — PerformanceReport has different fields from IntelReport, so reusing intelStore would break type safety)
 
 ---
 
@@ -287,7 +300,7 @@ Add to `shared/types.ts` under `// === Phase 5: Optimization Types ===`:
 - `CampaignMetrics`, `PerformanceMetrics`
 - `PerformanceReport`, `PerformanceInsight`, `LinePerformance`, `VariantAnalysis`
 
-Extend `IntelReportType` with `"performance"`.
+`PerformanceReport` is a standalone type with its own store — NOT an extension of `IntelReport`. The Inteligencia UI renders both report types but from separate stores.
 
 ---
 
