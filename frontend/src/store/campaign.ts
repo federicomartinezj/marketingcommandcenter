@@ -126,8 +126,9 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       set({ moodboard, wizardStep: "moodboard", isLoading: false });
       addActivity("success", "Moodboard visual generado");
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err), isLoading: false, wizardStep: "plan" });
-      addActivity("error", `Error generando moodboard: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: `Error en moodboard: ${msg}. Puedes reintentar o continuar sin moodboard.`, isLoading: false, wizardStep: "plan" });
+      addActivity("error", `Error generando moodboard: ${msg}`);
     }
   },
 

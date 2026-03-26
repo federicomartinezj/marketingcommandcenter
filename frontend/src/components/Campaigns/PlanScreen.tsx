@@ -4,10 +4,12 @@ import { FunnelDiagram } from "./FunnelDiagram";
 interface PlanScreenProps {
   campaign: Campaign;
   onApprove: () => void;
+  onSkipMoodboard: () => void;
   isLoading: boolean;
+  hasError: boolean;
 }
 
-export function PlanScreen({ campaign, onApprove, isLoading }: PlanScreenProps) {
+export function PlanScreen({ campaign, onApprove, onSkipMoodboard, isLoading, hasError }: PlanScreenProps) {
   return (
     <div className="space-y-6">
       <div>
@@ -36,10 +38,18 @@ export function PlanScreen({ campaign, onApprove, isLoading }: PlanScreenProps) 
         <h3 className="font-semibold text-near-black mb-3">Embudo</h3>
         <FunnelDiagram funnel={campaign.funnel} />
       </div>
-      <button onClick={onApprove} disabled={isLoading}
-        className="w-full bg-electric-blue text-white rounded-lg px-6 py-3 font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50">
-        {isLoading ? "Generando contenido..." : "Aprobar Plan y Generar Contenido"}
-      </button>
+      <div className="flex gap-3">
+        <button onClick={onApprove} disabled={isLoading}
+          className="flex-1 bg-electric-blue text-white rounded-lg px-6 py-3 font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50">
+          {isLoading ? "Generando moodboard..." : "Generar Moodboard Visual"}
+        </button>
+        {hasError && (
+          <button onClick={onSkipMoodboard} disabled={isLoading}
+            className="px-6 py-3 rounded-lg font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            Continuar sin moodboard
+          </button>
+        )}
+      </div>
     </div>
   );
 }

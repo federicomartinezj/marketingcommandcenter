@@ -37,7 +37,7 @@ export function CampaignWizard({ onClose }: CampaignWizardProps) {
         {error && <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
         <div className="p-6">
           {wizardStep === "brief" && <BriefScreen onSubmit={createCampaign} isLoading={isLoading} />}
-          {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateMoodboard} isLoading={isLoading} />}
+          {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateMoodboard} onSkipMoodboard={generateContent} isLoading={isLoading} hasError={!!error} />}
           {wizardStep === "moodboard" && moodboard && (
             <MoodboardScreen
               moodboard={moodboard as any}
