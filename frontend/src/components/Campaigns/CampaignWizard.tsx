@@ -1,6 +1,7 @@
 import { useCampaignStore } from "../../store/campaign";
 import { BriefScreen } from "./BriefScreen";
 import { PlanScreen } from "./PlanScreen";
+import { MoodboardScreen } from "./MoodboardScreen";
 import { GenerationScreen } from "./GenerationScreen";
 import { ReviewScreen } from "./ReviewScreen";
 
@@ -8,10 +9,10 @@ interface CampaignWizardProps {
   onClose: () => void;
 }
 
-const STEPS = ["brief", "plan", "generating", "review"] as const;
+const STEPS = ["brief", "plan", "moodboard", "generating", "review"] as const;
 
 export function CampaignWizard({ onClose }: CampaignWizardProps) {
-  const { wizardStep, current, isLoading, error, createCampaign, generateContent, selectVariant, regenerateChannel, approveCampaign, clearCurrent } = useCampaignStore();
+  const { wizardStep, current, isLoading, error, createCampaign, generateContent, generateMoodboard, approveMoodboard, moodboard, selectVariant, regenerateChannel, approveCampaign, clearCurrent } = useCampaignStore();
 
   const handleClose = () => { clearCurrent(); onClose(); };
 
@@ -27,7 +28,7 @@ export function CampaignWizard({ onClose }: CampaignWizardProps) {
                   STEPS.indexOf(wizardStep) > i ? "bg-green-500 text-white" :
                   "bg-gray-200 text-gray-500"
                 }`}>{i + 1}</div>
-                {i < 3 && <div className="w-8 h-px bg-gray-300" />}
+                {i < 4 && <div className="w-8 h-px bg-gray-300" />}
               </div>
             ))}
           </div>
@@ -36,7 +37,15 @@ export function CampaignWizard({ onClose }: CampaignWizardProps) {
         {error && <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
         <div className="p-6">
           {wizardStep === "brief" && <BriefScreen onSubmit={createCampaign} isLoading={isLoading} />}
-          {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateContent} isLoading={isLoading} />}
+          {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateMoodboard} isLoading={isLoading} />}
+          {wizardStep === "moodboard" && moodboard && (
+            <MoodboardScreen
+              moodboard={moodboard as any}
+              onApprove={async () => { await approveMoodboard(); await generateContent(); }}
+              onRegenerate={generateMoodboard}
+              isLoading={isLoading}
+            />
+          )}
           {wizardStep === "generating" && current && <GenerationScreen campaign={current} />}
           {wizardStep === "review" && current && (
             <ReviewScreen campaign={current} onSelectVariant={selectVariant}
