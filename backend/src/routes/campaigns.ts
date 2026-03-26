@@ -76,12 +76,14 @@ router.post("/:id/moodboard", async (req, res) => {
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   try {
+    console.log(`[moodboard] Generating for campaign ${campaign.id} (${campaign.line}), concept: "${campaign.concept}"`);
     const moodboard = await generateMoodboard(campaign.id, campaign.concept, campaign.line, campaign.audience, campaign.objective);
+    console.log(`[moodboard] Success — visual concept: "${moodboard.visualConcept}"`);
     moodboardStore.set(campaign.id, moodboard);
     res.json(moodboard);
   } catch (error) {
-    console.error("[moodboard] Error:", error);
-    res.status(500).json({ error: "Failed to generate moodboard" });
+    console.error("[moodboard] Error:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: `Moodboard error: ${error instanceof Error ? error.message : "Unknown error"}` });
   }
 });
 

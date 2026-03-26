@@ -13,17 +13,25 @@ interface MoodboardFields {
 }
 
 export function parseMoodboardOutput(raw: string): MoodboardFields {
-  // Extract JSON from markdown code block
-  const match = raw.match(/```json\s*([\s\S]*?)\s*```/);
-  if (!match) {
-    throw new Error("No JSON code block found in moodboard output");
+  // Try extracting JSON from markdown code block first
+  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  let jsonStr = match ? match[1] : null;
+
+  // If no code block, try finding JSON object directly
+  if (!jsonStr) {
+    const jsonMatch = raw.match(/\{[\s\S]*"visualConcept"[\s\S]*\}/);
+    jsonStr = jsonMatch ? jsonMatch[0] : null;
+  }
+
+  if (!jsonStr) {
+    throw new Error("No JSON found in moodboard output. Raw response starts with: " + raw.substring(0, 200));
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(match[1]);
+    parsed = JSON.parse(jsonStr.trim());
   } catch (e) {
-    throw new Error(`Failed to parse moodboard JSON: ${(e as Error).message}`);
+    throw new Error(`Failed to parse moodboard JSON: ${(e as Error).message}. Content starts with: ${jsonStr.substring(0, 200)}`);
   }
 
   if (typeof parsed !== "object" || parsed === null) {
@@ -75,7 +83,7 @@ export async function generateMoodboard(
 ): Promise<Moodboard> {
   const result = await designerAgent.run({
     line,
-    userMessage: `Genera un moodboard para esta campaña. Responde en el formato JSON especificado en MODO MOODBOARD.
+    userMessage: `MODO MOODBOARD — Genera un moodboard visual para esta campaña.
 
 CAMPAÑA:
 - Concepto: ${concept}
@@ -83,7 +91,18 @@ CAMPAÑA:
 - Audiencia: ${audience}
 - Objetivo: ${objective}
 
-Asegúrate de que el htmlPreview sea un collage visual completo de 800x600px con la paleta de colores, tipografía, y mood de la línea ${line}.`,
+IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON dentro de \`\`\`json ... \`\`\` con estos campos exactos:
+- visualConcept (string)
+- photographyStyle (string)
+- colorEmphasis (array de strings)
+- typography (string)
+- mood (string)
+- imagePrompts (array de strings en inglés para generación de imágenes)
+- htmlPreview (string con HTML completo de un moodboard visual de 800x600px)
+
+El htmlPreview debe incluir: bloques de colores, tipografía de ejemplo, mood keywords, y usar la paleta correcta de la línea ${line}. Texto visible siempre.
+
+NO respondas con HTML suelto. Responde SOLO con el JSON.`,
   });
 
   const fields = parseMoodboardOutput(result.content);
