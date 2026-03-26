@@ -64,7 +64,8 @@ export async function analyzeCampaignBrief(
 
 export async function generateCampaignContent(
   campaign: Campaign,
-  callbacks?: CampaignCallbacks
+  callbacks?: CampaignCallbacks,
+  visualGuide?: string
 ): Promise<Campaign> {
   callbacks?.onPhaseStarted?.(2);
 
@@ -79,7 +80,7 @@ export async function generateCampaignContent(
         const agent = getContentAgent(channelPlan.channel);
         const result = await agent.run({
           line: campaign.line,
-          userMessage: buildChannelPrompt(campaign, channelPlan, label),
+          userMessage: buildChannelPrompt(campaign, channelPlan, label, visualGuide),
         });
         return { id: randomUUID(), label: label as "A" | "B" | "C", content: result.content, selected: false };
       });
@@ -90,7 +91,7 @@ export async function generateCampaignContent(
       if (needsDesigner(channelPlan.channel)) {
         const designResult = await designerAgent.run({
           line: campaign.line,
-          userMessage: `Genera HTML/CSS para ${channelPlan.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${variants[0].content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.`,
+          userMessage: `Genera HTML/CSS para ${channelPlan.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${variants[0].content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
         });
         designHtml = designResult.content;
       }
@@ -138,6 +139,12 @@ export async function generateCampaignContent(
   return { ...campaign, channels: updatedChannels, status: "review", updatedAt: new Date().toISOString() };
 }
 
-function buildChannelPrompt(campaign: Campaign, channelPlan: ChannelPlan, variantLabel: string): string {
-  return `Genera el contenido (variante ${variantLabel}) para un ${channelPlan.channel} como parte de una campaña.\n\nCONTEXTO DE CAMPAÑA:\n- Concepto: ${campaign.concept}\n- Línea: ${campaign.line}\n- Audiencia: ${campaign.audience}\n- Objetivo: ${campaign.objective}\n- Etapa del embudo: ${channelPlan.funnelStage}\n\nGenera una variante ÚNICA y diferente. Variante ${variantLabel} debe tener un ángulo distinto:\n- A: Enfoque emocional (dolor/alivio)\n- B: Enfoque racional (datos/ROI)\n- C: Enfoque social (testimonios/casos)\n\nEscribe SOLO el contenido, sin explicaciones.`;
+function buildChannelPrompt(campaign: Campaign, channelPlan: ChannelPlan, variantLabel: string, visualGuide?: string): string {
+  let prompt = `Genera el contenido (variante ${variantLabel}) para un ${channelPlan.channel} como parte de una campaña.\n\nCONTEXTO DE CAMPAÑA:\n- Concepto: ${campaign.concept}\n- Línea: ${campaign.line}\n- Audiencia: ${campaign.audience}\n- Objetivo: ${campaign.objective}\n- Etapa del embudo: ${channelPlan.funnelStage}\n\nGenera una variante ÚNICA y diferente. Variante ${variantLabel} debe tener un ángulo distinto:\n- A: Enfoque emocional (dolor/alivio)\n- B: Enfoque racional (datos/ROI)\n- C: Enfoque social (testimonios/casos)\n\nEscribe SOLO el contenido, sin explicaciones.`;
+
+  if (visualGuide) {
+    prompt += `\n\nGUÍA VISUAL DE CAMPAÑA (úsala para alinear el tono y referencias visuales del copy):\n${visualGuide}`;
+  }
+
+  return prompt;
 }
