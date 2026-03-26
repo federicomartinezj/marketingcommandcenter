@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import type { Campaign, CreateCampaignRequest } from "../../shared/types.js";
+import type { Campaign, CreateCampaignRequest, Moodboard } from "../../shared/types.js";
 import { analyzeCampaignBrief, generateCampaignContent } from "../agents/campaign-orchestrator.js";
 import { streamZip } from "../export/campaign-exporter.js";
+import { generateMoodboard } from "../agents/moodboard-generator.js";
 
 const router = Router();
 const campaignStore: Map<string, Campaign> = new Map();
+const moodboardStore: Map<string, Moodboard> = new Map();
 
 // POST / — Create campaign (status: draft)
 router.post("/", (req, res) => {
@@ -65,6 +67,38 @@ router.get("/:id/export", (req, res) => {
   campaign.status = "exported";
   campaignStore.set(campaign.id, campaign);
   streamZip(campaign, res);
+});
+
+// POST /:id/moodboard — Generate moodboard for a campaign
+router.post("/:id/moodboard", async (req, res) => {
+  req.setTimeout(300000);
+  const campaign = campaignStore.get(req.params.id);
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  try {
+    const moodboard = await generateMoodboard(campaign);
+    moodboardStore.set(campaign.id, moodboard);
+    res.json(moodboard);
+  } catch (error) {
+    console.error("[moodboard] Error:", error);
+    res.status(500).json({ error: "Failed to generate moodboard" });
+  }
+});
+
+// GET /:id/moodboard — Get moodboard by campaign id
+router.get("/:id/moodboard", (req, res) => {
+  const moodboard = moodboardStore.get(req.params.id);
+  if (!moodboard) { res.status(404).json({ error: "Moodboard not found" }); return; }
+  res.json(moodboard);
+});
+
+// PUT /:id/moodboard/approve — Approve moodboard
+router.put("/:id/moodboard/approve", (req, res) => {
+  const moodboard = moodboardStore.get(req.params.id);
+  if (!moodboard) { res.status(404).json({ error: "Moodboard not found" }); return; }
+  const approved: Moodboard = { ...moodboard, status: "approved" };
+  moodboardStore.set(req.params.id, approved);
+  res.json(approved);
 });
 
 // GET /:id — Get campaign detail
@@ -142,7 +176,12 @@ router.post("/:id/generate", async (req, res) => {
 
   try {
     console.log(`[generate] Starting generation for campaign ${campaign.id} with ${campaign.channels.length} channels...`);
-    const generated = await generateCampaignContent(generating);
+    const moodboard = moodboardStore.get(campaign.id);
+    let visualGuide: string | undefined;
+    if (moodboard?.status === "approved") {
+      visualGuide = `GUÍA VISUAL DE CAMPAÑA:\n- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${moodboard.colorEmphasis.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
+    }
+    const generated = await generateCampaignContent(generating, undefined, visualGuide);
     console.log(`[generate] Completed! ${generated.channels.filter(c => c.status === "ready").length} channels ready`);
     campaignStore.set(generated.id, generated);
     res.json(generated);

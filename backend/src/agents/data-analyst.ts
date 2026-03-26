@@ -71,6 +71,15 @@ ${brandContext}
 - **MH** (Mantenimiento Hospitalario): Equipos y servicios para hospitales y clínicas
 - **Volta**: Soluciones de energía / electromovilidad
 
+## MODO PERFORMANCE:
+Cuando recibas métricas de campañas publicadas, analiza:
+1. Qué líneas de negocio convierten mejor (CTR, leads)
+2. Qué tipo de variante funciona mejor (A=emocional, B=racional, C=social) por canal
+3. Qué canales dan mejor ROI cuando hay datos de costo
+4. Patrones entre audiencia y engagement
+
+Responde en JSON con: title, summary, insights, linePerformance, variantAnalysis, recommendations.
+
 **Formato de respuesta:**
 
 \`\`\`json

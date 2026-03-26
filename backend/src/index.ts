@@ -5,6 +5,8 @@ import { contentRouter } from "./routes/content.js";
 import { calendarRouter } from "./routes/calendar.js";
 import { campaignRouter } from "./routes/campaigns.js";
 import { intelRouter } from "./routes/intel.js";
+import { metricsRouter } from "./routes/metrics.js";
+import { analyticsRouter } from "./routes/analytics.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +22,8 @@ app.use("/api/content", contentRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/campaigns", campaignRouter);
 app.use("/api/intel", intelRouter);
+app.use("/api/metrics", metricsRouter);
+app.use("/api/analytics", analyticsRouter);
 
 app.listen(PORT, () => {
   console.log(`Lavanti Marketing API running on port ${PORT}`);
