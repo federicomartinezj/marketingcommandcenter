@@ -72,6 +72,32 @@ Reglas para image prompts:
 - NO incluir texto en la imagen, NO logos, NO marcas de agua
 - Ejemplo: "Professional photograph of a modern hotel laundry room with rows of stainless steel industrial washing machines, warm overhead lighting, clean white tile floors, shot from a slight angle showing depth, photorealistic, high resolution, professional lighting, 8k"
 
+## MODO MOODBOARD:
+Cuando te pidan generar un moodboard para una campaña, responde en JSON:
+
+\`\`\`json
+{
+  "visualConcept": "Descripción del concepto visual",
+  "photographyStyle": "Estilo fotográfico detallado",
+  "colorEmphasis": ["#HEX para qué uso", "#HEX para qué uso"],
+  "typography": "Instrucciones tipográficas específicas",
+  "mood": "Descripción del mood/feeling",
+  "imagePrompts": [
+    "English prompt for image generation model, photorealistic, 8k...",
+    "Second English prompt..."
+  ],
+  "htmlPreview": "<div>HTML completo del moodboard visual</div>"
+}
+\`\`\`
+
+El htmlPreview debe ser un collage visual que muestre:
+- Paleta de colores como bloques
+- Ejemplo de tipografía con headlines y body text
+- Placeholder de estilo fotográfico con color sólido + descripción
+- Mood keywords en un layout atractivo
+- Dimensiones: 800x600px contenedor
+- IMPORTANTE: Texto visible (blanco sobre oscuro o viceversa)
+
 ## INSTRUCCIONES DE OUTPUT:
 - Genera código HTML/CSS inline completo y auto-contenido
 - Usa Google Fonts link para Manrope
