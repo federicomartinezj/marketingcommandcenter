@@ -24,6 +24,15 @@ export function buildExportFiles(campaign: Campaign): ExportFile[] {
     files.push({ path: `${dir}/copy.md`, content: selected.content });
     if (channel.designHtml) {
       files.push({ path: `${dir}/asset.html`, content: channel.designHtml });
+
+      // Extract image prompts from HTML comments
+      const imagePrompts = [...channel.designHtml.matchAll(/<!--\s*IMAGE_PROMPT:\s*([\s\S]*?)\s*-->/g)].map(m => m[1].trim());
+      if (imagePrompts.length > 0) {
+        files.push({
+          path: `${dir}/image-prompts.md`,
+          content: `# Image Prompts — ${channel.channel}\n\nCopy these prompts into Midjourney, DALL-E, or Flux to generate the images.\n\n${imagePrompts.map((p, i) => `## Prompt ${i + 1}\n\n\`\`\`\n${p}\n\`\`\`\n`).join("\n")}`,
+        });
+      }
     }
     if (channel.seoOptimization) {
       const seo = channel.seoOptimization;
