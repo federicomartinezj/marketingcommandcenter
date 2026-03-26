@@ -1,4 +1,18 @@
 import { BaseAgent } from "./base-agent.js";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+let logoDataUri = "";
+try {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const logoPath = resolve(__dirname, "../../public/lavanti-logo.png");
+  const logoBase64 = readFileSync(logoPath).toString("base64");
+  logoDataUri = `data:image/png;base64,${logoBase64}`;
+} catch {
+  // Fallback if logo not found
+  logoDataUri = "/lavanti-logo.png";
+}
 
 function buildDesignerSystemPrompt(brandContext: string): string {
   return `Eres el Designer del departamento de marketing de Lavanti (Hydrocare SAS).
@@ -27,7 +41,7 @@ Tu rol es generar especificaciones visuales y código HTML/CSS para assets de ma
 
 ### Logo de Lavanti:
 - SIEMPRE incluir el logo en las piezas visuales (social cards, emails, landing pages)
-- Usar este tag HTML para el logo: <img src="/lavanti-logo.png" alt="Lavanti" style="height: 32px;">
+- Usar este tag HTML para el logo: <img src="${logoDataUri}" alt="Lavanti" style="height: 32px;">
 - Posición: esquina superior izquierda o superior centro, según el diseño
 - En fondos oscuros (#262626): el logo se ve bien tal cual (es blanco/claro)
 - En fondos claros: agregar style="filter: invert(1);" al img para oscurecerlo
