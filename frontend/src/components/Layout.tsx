@@ -22,7 +22,7 @@ export function Layout({ children, currentView = "dashboard", onViewChange }: La
       <header className="bg-near-black text-white">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xl font-bold tracking-tight">LAVANTI</span>
+            <img src="/lavanti-logo.png" alt="Lavanti" className="h-8" />
             <span className="text-electric-blue font-semibold text-sm">MARKETING COMMAND CENTER</span>
           </div>
           <div className="flex items-center gap-4">
