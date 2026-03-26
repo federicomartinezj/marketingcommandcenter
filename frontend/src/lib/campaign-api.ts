@@ -61,4 +61,10 @@ export const campaignApi = {
     apiCall<Campaign>(`${BASE}/${id}/channels/${channelId}/regenerate`, { method: "POST" }),
   approve: (id: string) => apiCall<Campaign>(`${BASE}/${id}/approve`, { method: "PUT" }),
   exportUrl: (id: string) => `${BASE}/${id}/export`,
+  generateMoodboard: (id: string) =>
+    apiCall<unknown>(`${BASE}/${id}/moodboard`, { method: "POST" }),
+  getMoodboard: (id: string) =>
+    apiCall<unknown>(`${BASE}/${id}/moodboard`),
+  approveMoodboard: (id: string) =>
+    apiCall<unknown>(`${BASE}/${id}/moodboard/approve`, { method: "PUT" }),
 };

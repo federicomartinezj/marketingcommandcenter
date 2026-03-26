@@ -3,7 +3,7 @@ import { campaignApi } from "../lib/campaign-api";
 import type { Campaign } from "../lib/campaign-api";
 import { useActivityStore } from "./activity";
 
-type WizardStep = "brief" | "plan" | "generating" | "review";
+type WizardStep = "brief" | "plan" | "moodboard" | "generating" | "review";
 
 interface CampaignStore {
   campaigns: Campaign[];
@@ -20,6 +20,10 @@ interface CampaignStore {
   refreshCurrent: () => Promise<void>;
   setWizardStep: (step: WizardStep) => void;
   clearCurrent: () => void;
+  moodboard: unknown | null;
+  generateMoodboard: () => Promise<void>;
+  approveMoodboard: () => Promise<void>;
+  reportMetrics: (channelId: string, data: { variantLabel: string; platform: string; metrics: Record<string, number | undefined>; notes?: string }) => Promise<void>;
 }
 
 export const useCampaignStore = create<CampaignStore>((set, get) => ({
@@ -28,6 +32,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   wizardStep: "brief",
   isLoading: false,
   error: null,
+  moodboard: null,
 
   fetchCampaigns: async () => {
     const campaigns = await campaignApi.list();
@@ -108,5 +113,39 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
   },
 
   setWizardStep: (step) => set({ wizardStep: step }),
-  clearCurrent: () => set({ current: null, wizardStep: "brief", error: null }),
+  clearCurrent: () => set({ current: null, wizardStep: "brief", error: null, moodboard: null }),
+
+  generateMoodboard: async () => {
+    const { current } = get();
+    if (!current) return;
+    const addActivity = useActivityStore.getState().addActivity;
+    set({ isLoading: true, error: null });
+    addActivity("working", "Generando moodboard visual...");
+    try {
+      const moodboard = await campaignApi.generateMoodboard(current.id);
+      set({ moodboard, wizardStep: "moodboard", isLoading: false });
+      addActivity("success", "Moodboard visual generado");
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err), isLoading: false, wizardStep: "plan" });
+      addActivity("error", `Error generando moodboard: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  },
+
+  approveMoodboard: async () => {
+    const { current } = get();
+    if (!current) return;
+    try {
+      await campaignApi.approveMoodboard(current.id);
+      set((state) => ({ moodboard: state.moodboard ? { ...(state.moodboard as Record<string, unknown>), status: "approved" } : null }));
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  reportMetrics: async (channelId, data) => {
+    const { current } = get();
+    if (!current) return;
+    const { metricsApi } = await import("../lib/metrics-api");
+    await metricsApi.report(current.id, channelId, data);
+  },
 }));

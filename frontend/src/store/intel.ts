@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { intelApi } from "../lib/intel-api";
 import type { IntelReport } from "../lib/intel-api";
+import type { PerformanceReport } from "../lib/metrics-api";
 import { useActivityStore } from "./activity";
 
 interface IntelStore {
