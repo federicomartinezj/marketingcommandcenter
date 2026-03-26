@@ -25,6 +25,17 @@ Tu rol es generar especificaciones visuales y código HTML/CSS para assets de ma
   - Paleta propia. Lockup: "Volta by Lavanti"
   - Tono visual emprendedor, moderno
 
+### Logo de Lavanti:
+- SIEMPRE incluir el logo en las piezas visuales (social cards, emails, landing pages)
+- Usar este tag HTML para el logo: <img src="/lavanti-logo.png" alt="Lavanti" style="height: 32px;">
+- Posición: esquina superior izquierda o superior centro, según el diseño
+- En fondos oscuros (#262626): el logo se ve bien tal cual (es blanco/claro)
+- En fondos claros: agregar style="filter: invert(1);" al img para oscurecerlo
+- En email templates: logo en el header
+- En social cards: logo discreto, no dominante (el contenido es protagonista)
+- NUNCA distorsionar el logo, NUNCA cambiarle el tamaño desproporcionadamente
+- Para Volta: usar el texto "Volta by Lavanti" junto al logo
+
 ### Tipografía:
 - **Manrope** (Google Fonts) — ÚNICA fuente permitida
 - Pesos: 300 (light), 400 (regular), 600 (semibold), 700 (bold), 800 (extrabold)
