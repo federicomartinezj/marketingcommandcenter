@@ -133,10 +133,11 @@ router.post("/:id/analyze", async (req, res) => {
     campaignStore.set(analyzed.id, analyzed);
     res.json(analyzed);
   } catch (error) {
-    console.error("Campaign analyze error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Campaign analyze error:", msg);
     const reset: Campaign = { ...planning, status: "draft", updatedAt: new Date().toISOString() };
     campaignStore.set(reset.id, reset);
-    res.status(500).json({ error: "Failed to analyze campaign brief" });
+    res.status(500).json({ error: `Analyze failed: ${msg}` });
   }
 });
 
