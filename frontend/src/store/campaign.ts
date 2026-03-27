@@ -122,7 +122,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     set({ isLoading: true, error: null });
     addActivity("working", "Generando moodboard visual...");
     try {
-      const moodboard = await campaignApi.generateMoodboard(current.id);
+      const moodboard = await campaignApi.generateMoodboard(current.id) as Record<string, unknown>;
       set({ moodboard, wizardStep: "moodboard", isLoading: false });
       addActivity("success", "Moodboard visual generado");
     } catch (err) {
