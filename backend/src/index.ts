@@ -28,4 +28,5 @@ app.use("/api/analytics", analyticsRouter);
 
 app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`Lavanti Marketing API running on port ${PORT}`);
+  console.log(`ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "SET (" + process.env.ANTHROPIC_API_KEY.substring(0, 10) + "...)" : "NOT SET"}`);
 });
