@@ -13,11 +13,21 @@ interface MoodboardFields {
 }
 
 export function parseMoodboardOutput(raw: string): MoodboardFields {
-  // Try extracting JSON from markdown code block first
-  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  let jsonStr = match ? match[1] : null;
+  // Try extracting JSON from markdown code block (greedy to capture full content)
+  const match = raw.match(/```(?:json)?\s*([\s\S]*)```/);
+  let jsonStr = match ? match[1].trim() : null;
 
-  // If no code block, try finding JSON object directly
+  // If no closing ```, take everything after opening ```json
+  if (!jsonStr) {
+    const openMatch = raw.match(/```(?:json)?\s*([\s\S]*)/);
+    if (openMatch) {
+      jsonStr = openMatch[1].trim();
+      // Remove trailing ``` if present
+      jsonStr = jsonStr.replace(/```\s*$/, "").trim();
+    }
+  }
+
+  // If no code block at all, try finding JSON object directly
   if (!jsonStr) {
     const jsonMatch = raw.match(/\{[\s\S]*"visualConcept"[\s\S]*\}/);
     jsonStr = jsonMatch ? jsonMatch[0] : null;
