@@ -1,11 +1,11 @@
 import { useState } from "react";
 
 const BUSINESS_LINES = [
-  "Todas las líneas",
-  "Lavanti Black",
-  "Lavanti Home",
-  "Lavanti Sport",
-  "Lavanti Kids",
+  { value: "", label: "Todas las líneas" },
+  { value: "OPL", label: "OPL — Venta de equipos" },
+  { value: "AAS", label: "AAS — Renting / LaaS" },
+  { value: "MH", label: "Multihousing" },
+  { value: "Volta", label: "Volta — Lavanderías" },
 ];
 
 interface ResearchBarProps {
@@ -17,13 +17,12 @@ interface ResearchBarProps {
 
 export function ResearchBar({ onResearch, onInternalAnalysis, onPerformanceAnalysis, isLoading }: ResearchBarProps) {
   const [query, setQuery] = useState("");
-  const [line, setLine] = useState("Todas las líneas");
+  const [line, setLine] = useState("");
 
   const handleResearch = () => {
     const q = query.trim();
     if (!q) return;
-    const selectedLine = line === "Todas las líneas" ? undefined : line;
-    onResearch(q, selectedLine);
+    onResearch(q, line || undefined);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -52,8 +51,8 @@ export function ResearchBar({ onResearch, onInternalAnalysis, onPerformanceAnaly
           className="border rounded-lg px-3 py-2 text-sm text-near-black focus:outline-none focus:ring-2 focus:ring-electric-blue disabled:opacity-50 bg-white"
         >
           {BUSINESS_LINES.map((l) => (
-            <option key={l} value={l}>
-              {l}
+            <option key={l.value} value={l.value}>
+              {l.label}
             </option>
           ))}
         </select>
