@@ -38,7 +38,7 @@ export function CampaignWizard({ onClose }: CampaignWizardProps) {
         <div className="p-6">
           {wizardStep === "brief" && <BriefScreen onSubmit={createCampaign} isLoading={isLoading} />}
           {wizardStep === "plan" && current && <PlanScreen campaign={current} onApprove={generateMoodboard} onSkipMoodboard={generateContent} isLoading={isLoading} hasError={!!error} />}
-          {wizardStep === "moodboard" && moodboard && (
+          {wizardStep === "moodboard" && !!moodboard && (
             <MoodboardScreen
               moodboard={moodboard as any}
               onApprove={async () => { await approveMoodboard(); await generateContent(); }}

@@ -20,7 +20,7 @@ interface IntelStore {
   runMonthly: (systemData?: Record<string, unknown>) => Promise<void>;
 }
 
-export const useIntelStore = create<IntelStore>((set, get) => ({
+export const useIntelStore = create<IntelStore>((set, _get) => ({
   reports: [],
   performanceReports: [],
   isLoading: false,

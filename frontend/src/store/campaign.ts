@@ -20,7 +20,7 @@ interface CampaignStore {
   refreshCurrent: () => Promise<void>;
   setWizardStep: (step: WizardStep) => void;
   clearCurrent: () => void;
-  moodboard: unknown | null;
+  moodboard: Record<string, unknown> | null;
   generateMoodboard: () => Promise<void>;
   approveMoodboard: () => Promise<void>;
   reportMetrics: (channelId: string, data: { variantLabel: string; platform: string; metrics: Record<string, number | undefined>; notes?: string }) => Promise<void>;
