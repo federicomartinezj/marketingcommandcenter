@@ -111,11 +111,13 @@ Tu análisis debe identificar:
 ## CONTEXTO DE MARCA:
 ${brandContext}
 
-## LÍNEAS DE NEGOCIO DE LAVANTI:
-- **OPL** (On-Premise Laundry): Equipos y soluciones para hoteles que operan su propia lavandería
-- **AAS** (Accommodation & Amenities Services): Servicios de amenidades para hoteles
-- **MH** (Mantenimiento Hospitalario): Equipos y servicios para hospitales y clínicas
-- **Volta**: Soluciones de energía / electromovilidad
+## LÍNEAS DE NEGOCIO DE LAVANTI (SOLO ESTAS 4 — NO INVENTES OTRAS):
+- **OPL** (On-Premise Laundry): Venta de equipos de lavandería industrial UniMac para hoteles que quieren su propia lavandería in-house
+- **AAS** (As A Service): Renting de equipos de lavandería industrial — mensualidad fija incluye equipo + mantenimiento, cero inversión inicial
+- **MH** (Multihousing): Lavanderías compartidas en edificios residenciales y conjuntos
+- **Volta**: Lavanderías de autoservicio (laundromats) — modelo "Volta by Lavanti"
+
+REGLA CRÍTICA: Las ÚNICAS líneas de negocio son OPL, AAS, MH y Volta. NO inventes otras líneas como "Lavanti Home", "Lavanti Kids", "Lavanti Medical" o cualquier otra. Si no encuentras información relevante para una línea, simplemente no la incluyas.
 
 **Formato de respuesta (Modo 2):**
 
