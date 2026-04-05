@@ -6,11 +6,29 @@ import { fileURLToPath } from "url";
 let logoDataUri = "";
 try {
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const logoPath = resolve(__dirname, "../../public/lavanti-logo.png");
-  const logoBase64 = readFileSync(logoPath).toString("base64");
-  logoDataUri = `data:image/png;base64,${logoBase64}`;
+  // Try multiple paths to find the logo
+  const paths = [
+    resolve(__dirname, "../../public/lavanti-logo.png"),
+    resolve(__dirname, "../../../frontend/public/lavanti-logo.png"),
+    resolve(__dirname, "../../../backend/public/lavanti-logo.png"),
+    resolve(process.cwd(), "backend/public/lavanti-logo.png"),
+    resolve(process.cwd(), "public/lavanti-logo.png"),
+  ];
+  let found = false;
+  for (const p of paths) {
+    try {
+      const logoBase64 = readFileSync(p).toString("base64");
+      logoDataUri = `data:image/png;base64,${logoBase64}`;
+      console.log(`[designer] Logo loaded from: ${p}`);
+      found = true;
+      break;
+    } catch { /* try next */ }
+  }
+  if (!found) {
+    console.warn("[designer] Logo not found in any path, using fallback");
+    logoDataUri = "/lavanti-logo.png";
+  }
 } catch {
-  // Fallback if logo not found
   logoDataUri = "/lavanti-logo.png";
 }
 
