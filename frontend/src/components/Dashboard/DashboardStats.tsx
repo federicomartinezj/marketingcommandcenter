@@ -65,6 +65,9 @@ export function DashboardStats() {
       }
     }
     load();
+    // Refresh stats every 30s
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

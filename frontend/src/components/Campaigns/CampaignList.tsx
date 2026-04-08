@@ -29,6 +29,18 @@ export function CampaignList() {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const [finalizingChannel, setFinalizingChannel] = useState<string | null>(null);
+
+  // Auto-poll every 5s when something is in progress
+  const hasActiveWork = loading !== null || finalizingChannel !== null ||
+    campaigns.some((c) => c.status === "generating" || c.status === "planning");
+
+  useEffect(() => {
+    if (!hasActiveWork) return;
+    const interval = setInterval(fetchAll, 5000);
+    return () => clearInterval(interval);
+  }, [hasActiveWork]);
+
   const handleGenerate = async (id: string) => {
     setLoading(id);
     try {
@@ -39,8 +51,6 @@ export function CampaignList() {
     }
     setLoading(null);
   };
-
-  const [finalizingChannel, setFinalizingChannel] = useState<string | null>(null);
 
   const handleFinalize = async (campaignId: string, channelId: string) => {
     setFinalizingChannel(channelId);
