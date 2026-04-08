@@ -37,12 +37,24 @@ const URGENCY_LABELS: Record<string, string> = {
 
 interface ReportCardProps {
   report: IntelReport;
-  onCreateCampaign: (reportId: string, opportunityId: string) => void;
+  onCreateCampaign: (reportId: string, opportunityId: string) => Promise<void>;
   onArchive: (reportId: string) => void;
 }
 
 export function ReportCard({ report, onCreateCampaign, onArchive }: ReportCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [loadingOpp, setLoadingOpp] = useState<string | null>(null);
+  const [createdOpp, setCreatedOpp] = useState<Set<string>>(new Set());
+
+  const handleCreateCampaign = async (reportId: string, oppId: string) => {
+    setLoadingOpp(oppId);
+    try {
+      await onCreateCampaign(reportId, oppId);
+      setCreatedOpp((prev) => new Set(prev).add(oppId));
+    } finally {
+      setLoadingOpp(null);
+    }
+  };
 
   const typeBadge = TYPE_BADGES[report.type] ?? "bg-gray-100 text-gray-600";
   const typeLabel = TYPE_LABELS[report.type] ?? report.type;
@@ -145,14 +157,19 @@ export function ReportCard({ report, onCreateCampaign, onArchive }: ReportCardPr
                           )}
                         </div>
                         <div className="flex-shrink-0">
-                          {opp.campaignId ? (
+                          {opp.campaignId || createdOpp.has(opp.id) ? (
                             <span className="text-xs px-3 py-1.5 rounded-lg bg-green-100 text-green-700 font-medium">
-                              Campaña creada
+                              ✓ Campaña creada — ve a Campañas
+                            </span>
+                          ) : loadingOpp === opp.id ? (
+                            <span className="text-xs px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-700 font-medium animate-pulse">
+                              Creando campaña y analizando brief...
                             </span>
                           ) : (
                             <button
-                              onClick={() => onCreateCampaign(report.id, opp.id)}
-                              className="text-xs px-3 py-1.5 rounded-lg bg-electric-blue text-white font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+                              onClick={() => handleCreateCampaign(report.id, opp.id)}
+                              disabled={loadingOpp !== null}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-electric-blue text-white font-medium hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50"
                             >
                               Crear Campaña
                             </button>
