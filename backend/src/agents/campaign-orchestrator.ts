@@ -25,6 +25,7 @@ function needsSEO(channel: ContentType): boolean {
   return SEO_CHANNELS.includes(channel);
 }
 
+// Phase 1: Analyze brief → concept + funnel
 export async function analyzeCampaignBrief(
   campaign: Campaign,
   callbacks?: CampaignCallbacks
@@ -62,6 +63,7 @@ export async function analyzeCampaignBrief(
   };
 }
 
+// Phase 2: Generate ONLY copy variants (no design, no SEO, no brand review)
 export async function generateCampaignContent(
   campaign: Campaign,
   callbacks?: CampaignCallbacks,
@@ -76,6 +78,7 @@ export async function generateCampaignContent(
       callbacks?.onChannelStarted?.(channelPlan.id, channelPlan.channel);
       updatedChannels[index] = { ...channelPlan, status: "generating" };
 
+      // Only generate copy variants — design comes later after selection
       const variantPromises = ["A", "B", "C"].map(async (label) => {
         const agent = getContentAgent(channelPlan.channel);
         const result = await agent.run({
@@ -87,56 +90,75 @@ export async function generateCampaignContent(
 
       const variants = await Promise.all(variantPromises);
 
-      let designHtml: string | undefined;
-      if (needsDesigner(channelPlan.channel)) {
-        const designResult = await designerAgent.run({
-          line: campaign.line,
-          userMessage: `Genera HTML/CSS para ${channelPlan.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${variants[0].content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
-        });
-        designHtml = designResult.content;
-      }
-
-      let seoOptimization;
-      if (needsSEO(channelPlan.channel)) {
-        const seoResult = await seoSpecialistAgent.run({
-          line: campaign.line,
-          userMessage: `Optimiza este contenido para SEO:\n\nTipo: ${channelPlan.channel}\nLínea: ${campaign.line}\nAudiencia: ${campaign.audience}\n\nContenido:\n${variants[0].content}`,
-        });
-        seoOptimization = parseSEOOutput(seoResult.content);
-      }
-
       callbacks?.onChannelCompleted?.(channelPlan.id, channelPlan.channel);
-      return { index, variants, designHtml, seoOptimization };
+      return { index, variants };
     })
   );
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status === "fulfilled") {
-      const { index, variants, designHtml, seoOptimization } = result.value;
-      updatedChannels[index] = { ...updatedChannels[index], variants, designHtml, seoOptimization, status: "ready" };
+      const { index, variants } = result.value;
+      updatedChannels[index] = { ...updatedChannels[index], variants, status: "ready" };
     } else {
       updatedChannels[i] = { ...updatedChannels[i], status: "error" };
       callbacks?.onChannelFailed?.(updatedChannels[i].id, updatedChannels[i].channel, result.reason?.message || "Unknown error");
     }
   }
 
-  callbacks?.onPhaseStarted?.(3);
-  for (let i = 0; i < updatedChannels.length; i++) {
-    const ch = updatedChannels[i];
-    if (ch.status !== "ready" || ch.variants.length === 0) continue;
+  return { ...campaign, channels: updatedChannels, status: "review", updatedAt: new Date().toISOString() };
+}
 
-    const reviewResult = await brandGuardianAgent.run({
+// Phase 3: Finalize — generate design + SEO + brand review for SELECTED variant only
+export async function finalizeCampaignChannel(
+  campaign: Campaign,
+  channelId: string,
+  visualGuide?: string
+): Promise<ChannelPlan> {
+  const channel = campaign.channels.find((ch) => ch.id === channelId);
+  if (!channel) throw new Error("Channel not found");
+
+  const selected = channel.variants.find((v) => v.selected);
+  if (!selected) throw new Error("No variant selected");
+
+  console.log(`[finalize] Generating design + SEO + brand review for ${channel.channel} (variant ${selected.label})`);
+
+  // Generate design HTML for selected variant
+  let designHtml: string | undefined;
+  if (needsDesigner(channel.channel)) {
+    const designResult = await designerAgent.run({
       line: campaign.line,
-      userMessage: buildReviewMessage({ content: ch.variants[0].content, line: campaign.line, contentType: ch.channel, audience: campaign.audience }),
+      userMessage: `Genera HTML/CSS para ${channel.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${selected.content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
     });
-
-    updatedChannels[i] = { ...ch, brandReview: parseBrandReview(reviewResult.content) };
+    designHtml = designResult.content;
   }
 
-  callbacks?.onCampaignCompleted?.({ ...campaign, channels: updatedChannels, status: "review" });
+  // SEO optimization for selected variant
+  let seoOptimization;
+  if (needsSEO(channel.channel)) {
+    const seoResult = await seoSpecialistAgent.run({
+      line: campaign.line,
+      userMessage: `Optimiza este contenido para SEO:\n\nTipo: ${channel.channel}\nLínea: ${campaign.line}\nAudiencia: ${campaign.audience}\n\nContenido:\n${selected.content}`,
+    });
+    seoOptimization = parseSEOOutput(seoResult.content);
+  }
 
-  return { ...campaign, channels: updatedChannels, status: "review", updatedAt: new Date().toISOString() };
+  // Brand Guardian review of selected variant
+  const reviewResult = await brandGuardianAgent.run({
+    line: campaign.line,
+    userMessage: buildReviewMessage({ content: selected.content, line: campaign.line, contentType: channel.channel, audience: campaign.audience }),
+  });
+  const brandReview = parseBrandReview(reviewResult.content);
+
+  console.log(`[finalize] Done — ${channel.channel} brand score: ${brandReview.score}`);
+
+  return {
+    ...channel,
+    designHtml,
+    seoOptimization,
+    brandReview,
+    status: "approved",
+  };
 }
 
 function buildChannelPrompt(campaign: Campaign, channelPlan: ChannelPlan, variantLabel: string, visualGuide?: string): string {

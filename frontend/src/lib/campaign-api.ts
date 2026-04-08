@@ -58,6 +58,8 @@ export const campaignApi = {
   generate: (id: string) => apiCall<Campaign>(`${BASE}/${id}/generate`, { method: "POST" }),
   selectVariant: (id: string, channelId: string, variantId: string) =>
     apiCall<Campaign>(`${BASE}/${id}/channels/${channelId}/select`, { method: "PUT", body: JSON.stringify({ variantId }) }),
+  finalizeChannel: (id: string, channelId: string) =>
+    apiCall<Campaign>(`${BASE}/${id}/channels/${channelId}/finalize`, { method: "POST" }),
   regenerateChannel: (id: string, channelId: string) =>
     apiCall<Campaign>(`${BASE}/${id}/channels/${channelId}/regenerate`, { method: "POST" }),
   approve: (id: string) => apiCall<Campaign>(`${BASE}/${id}/approve`, { method: "PUT" }),

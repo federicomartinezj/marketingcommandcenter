@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import type { Campaign, CreateCampaignRequest, Moodboard } from "../../shared/types.js";
-import { analyzeCampaignBrief, generateCampaignContent } from "../agents/campaign-orchestrator.js";
+import { analyzeCampaignBrief, generateCampaignContent, finalizeCampaignChannel } from "../agents/campaign-orchestrator.js";
 import { streamZip } from "../export/campaign-exporter.js";
 import { generateMoodboard } from "../agents/moodboard-generator.js";
 
@@ -196,7 +196,7 @@ router.post("/:id/generate", async (req, res) => {
   }
 });
 
-// PUT /:id/channels/:channelId/select — Select winning variant
+// PUT /:id/channels/:channelId/select — Select winning variant (just marks selection, no finalization)
 router.put("/:id/channels/:channelId/select", (req, res) => {
   const campaign = campaignStore.get(req.params.id);
   if (!campaign) {
@@ -218,7 +218,7 @@ router.put("/:id/channels/:channelId/select", (req, res) => {
 
   const channel = campaign.channels[channelIndex];
   const updatedVariants = channel.variants.map((v) => ({ ...v, selected: v.id === variantId }));
-  const updatedChannel = { ...channel, variants: updatedVariants, status: "approved" as const };
+  const updatedChannel = { ...channel, variants: updatedVariants };
 
   const updatedChannels = [...campaign.channels];
   updatedChannels[channelIndex] = updatedChannel;
@@ -226,6 +226,39 @@ router.put("/:id/channels/:channelId/select", (req, res) => {
   const updated: Campaign = { ...campaign, channels: updatedChannels, updatedAt: new Date().toISOString() };
   campaignStore.set(updated.id, updated);
   res.json(updated);
+});
+
+// POST /:id/channels/:channelId/finalize — Generate design + SEO + brand review for selected variant
+router.post("/:id/channels/:channelId/finalize", async (req, res) => {
+  req.setTimeout(300000);
+  const campaign = campaignStore.get(req.params.id);
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  const channelIndex = campaign.channels.findIndex((ch) => ch.id === req.params.channelId);
+  if (channelIndex === -1) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const selected = campaign.channels[channelIndex].variants.find((v) => v.selected);
+  if (!selected) { res.status(400).json({ error: "No variant selected — select a variant first" }); return; }
+
+  try {
+    console.log(`[finalize] Starting for ${campaign.channels[channelIndex].channel} (variant ${selected.label})`);
+    const moodboard = moodboardStore.get(campaign.id);
+    let visualGuide: string | undefined;
+    if (moodboard?.status === "approved") {
+      visualGuide = `- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${moodboard.colorEmphasis.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
+    }
+
+    const finalized = await finalizeCampaignChannel(campaign, req.params.channelId, visualGuide);
+    const updatedChannels = [...campaign.channels];
+    updatedChannels[channelIndex] = finalized;
+    const updated: Campaign = { ...campaign, channels: updatedChannels, updatedAt: new Date().toISOString() };
+    campaignStore.set(updated.id, updated);
+    res.json(updated);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[finalize] Error: ${msg}`);
+    res.status(500).json({ error: `Finalize failed: ${msg}` });
+  }
 });
 
 // POST /:id/channels/:channelId/regenerate — Retry failed channel

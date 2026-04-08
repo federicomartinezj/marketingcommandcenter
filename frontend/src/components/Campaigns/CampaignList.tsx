@@ -40,6 +40,19 @@ export function CampaignList() {
     setLoading(null);
   };
 
+  const [finalizingChannel, setFinalizingChannel] = useState<string | null>(null);
+
+  const handleFinalize = async (campaignId: string, channelId: string) => {
+    setFinalizingChannel(channelId);
+    try {
+      await campaignApi.finalizeChannel(campaignId, channelId);
+      await fetchAll();
+    } catch (err) {
+      alert(`Error finalizando: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setFinalizingChannel(null);
+  };
+
   const handleApprove = async (id: string) => {
     await campaignApi.approve(id);
     await fetchAll();
@@ -142,6 +155,31 @@ export function CampaignList() {
                                 variants={channel.variants}
                                 onSelect={(variantId) => handleSelectVariant(campaign.id, channel.id, variantId)}
                               />
+                            </div>
+                          )}
+                          {/* Finalize button — generates design + SEO + brand review for selected variant */}
+                          {channel.variants.some((v) => v.selected) && !channel.designHtml && !channel.brandReview && (
+                            <div className="px-3 pb-3">
+                              {finalizingChannel === channel.id ? (
+                                <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                                  <span className="text-sm text-yellow-700 font-medium animate-pulse">
+                                    Generando diseño HTML + SEO + Brand Review para variante seleccionada...
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleFinalize(campaign.id, channel.id)}
+                                  className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+                                >
+                                  Generar Pieza Final (HTML + SEO + Brand Review)
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* Finalized badge */}
+                          {channel.designHtml && channel.brandReview && (
+                            <div className="px-3 pb-1">
+                              <span className="text-xs text-green-600 font-medium">✓ Pieza finalizada — HTML + Brand Review listos</span>
                             </div>
                           )}
                           {/* Image Prompts extracted from designHtml */}
