@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "postinstall": "cd backend && npm install",
-    "build": "echo 'Using tsx runtime'",
+    "build": "cd backend && npx prisma generate && npx prisma migrate deploy",
     "start": "cd backend && npx tsx src/index.ts"
   },
   "engines": {
