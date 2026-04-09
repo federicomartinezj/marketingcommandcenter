@@ -195,10 +195,53 @@ export function CampaignList() {
                               )}
                             </div>
                           )}
-                          {/* Finalized badge */}
-                          {channel.designHtml && channel.brandReview && (
-                            <div className="px-3 pb-1">
-                              <span className="text-xs text-green-600 font-medium">✓ Pieza finalizada — HTML + Brand Review listos</span>
+                          {/* Finalized badge + download */}
+                          {channel.designHtml && (
+                            <div className="px-3 pb-2 flex items-center gap-3">
+                              {channel.brandReview && (
+                                <span className="text-xs text-green-600 font-medium">✓ Pieza finalizada</span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const w = window.open("", "_blank");
+                                  if (w) { w.document.write(channel.designHtml!); w.document.close(); }
+                                }}
+                                className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+                              >
+                                Ver HTML
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const blob = new Blob([channel.designHtml!], { type: "text/html" });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `${campaign.name || "campaign"}-${channel.channel}-${channel.funnelStage}.html`;
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                }}
+                                className="text-xs text-green-600 hover:text-green-800 font-medium"
+                              >
+                                Descargar HTML
+                              </button>
+                              {channel.variants.find((v) => v.selected) && (
+                                <button
+                                  onClick={() => {
+                                    const selected = channel.variants.find((v) => v.selected);
+                                    if (!selected) return;
+                                    const blob = new Blob([selected.content], { type: "text/markdown" });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `${campaign.name || "campaign"}-${channel.channel}-copy.md`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  }}
+                                  className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                                >
+                                  Descargar Copy
+                                </button>
+                              )}
                             </div>
                           )}
                           {/* Image Prompts extracted from designHtml */}
