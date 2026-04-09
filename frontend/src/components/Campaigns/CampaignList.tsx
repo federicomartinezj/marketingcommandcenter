@@ -320,19 +320,16 @@ export function CampaignList() {
                       {isGenerating ? "Generando variantes de copy..." : "Generar Variantes de Copy"}
                     </button>
                   )}
-                  {(campaign.status === "review" || campaign.status === "generating") && (() => {
-                    const allFinalized = campaign.channels.every((ch) => ch.variants.length === 0 || (ch.designHtml || ch.brandReview));
-                    return (
-                      <button
-                        onClick={() => handleApprove(campaign.id)}
-                        disabled={!allFinalized}
-                        className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {allFinalized ? "Aprobar Campaña" : "Selecciona variantes para aprobar"}
-                      </button>
-                    );
-                  })()}
-                  {(campaign.status === "approved" || campaign.status === "exported") && (
+                  {(campaign.status === "review" || campaign.status === "generating") && (
+                    <button
+                      onClick={() => handleApprove(campaign.id)}
+                      className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700"
+                    >
+                      Aprobar Campaña
+                    </button>
+                  )}
+                  {(campaign.status === "approved" || campaign.status === "exported" ||
+                    campaign.channels.some((ch) => ch.variants.length > 0)) && (
                     <a
                       href={campaignApi.exportUrl(campaign.id)}
                       className="bg-near-black text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800"

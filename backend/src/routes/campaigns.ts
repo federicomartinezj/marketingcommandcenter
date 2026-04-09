@@ -68,11 +68,11 @@ router.get("/", async (req, res) => {
 router.get("/:id/export", async (req, res) => {
   const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
   if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
-  if (row.status !== "approved" && row.status !== "exported") {
-    res.status(400).json({ error: "Campaign must be approved to export" }); return;
+  const channels = row.channels as unknown[];
+  if (!channels || channels.length === 0) {
+    res.status(400).json({ error: "Campaign has no content to export" }); return;
   }
-  await prisma.campaign.update({ where: { id: row.id }, data: { status: "exported" } });
-  const campaign = toCampaign({ ...row, status: "exported" } as any);
+  const campaign = toCampaign(row as any);
   streamZip(campaign, res);
 });
 
