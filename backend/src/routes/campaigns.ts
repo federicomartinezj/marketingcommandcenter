@@ -1,16 +1,35 @@
 import { Router } from "express";
-import { randomUUID } from "crypto";
-import type { Campaign, CreateCampaignRequest, Moodboard } from "../../shared/types.js";
+import type { Campaign, ChannelPlan, ContentVariant, CreateCampaignRequest, Moodboard } from "../../shared/types.js";
 import { analyzeCampaignBrief, generateCampaignContent, finalizeCampaignChannel } from "../agents/campaign-orchestrator.js";
 import { streamZip } from "../export/campaign-exporter.js";
 import { generateMoodboard } from "../agents/moodboard-generator.js";
-
+import { prisma } from "../db.js";
 const router = Router();
-const campaignStore: Map<string, Campaign> = new Map();
-const moodboardStore: Map<string, Moodboard> = new Map();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON columns need runtime-serialized values
+const toJson = (v: unknown): any => JSON.parse(JSON.stringify(v));
+
+function toCampaign(row: Record<string, unknown>): Campaign {
+  return {
+    ...row,
+    funnel: row.funnel as Campaign["funnel"],
+    channels: row.channels as Campaign["channels"],
+    createdAt: (row.createdAt as Date).toISOString(),
+    updatedAt: (row.updatedAt as Date).toISOString(),
+  } as Campaign;
+}
+
+function toMoodboard(row: Record<string, unknown>): Moodboard {
+  return {
+    ...row,
+    colorEmphasis: row.colorEmphasis as string[],
+    imagePrompts: row.imagePrompts as string[],
+    createdAt: (row.createdAt as Date).toISOString(),
+  } as Moodboard;
+}
 
 // POST / — Create campaign (status: draft)
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const body = req.body as CreateCampaignRequest;
 
@@ -19,24 +38,16 @@ router.post("/", (req, res) => {
       return;
     }
 
-    const now = new Date().toISOString();
-    const campaign: Campaign = {
-      id: randomUUID(),
-      name: "",
-      brief: body.brief,
-      line: body.line,
-      audience: body.audience,
-      objective: body.objective || "",
-      concept: "",
-      funnel: [],
-      channels: [],
-      status: "draft",
-      createdAt: now,
-      updatedAt: now,
-    };
+    const row = await prisma.campaign.create({
+      data: {
+        brief: body.brief,
+        line: body.line,
+        audience: body.audience,
+        objective: body.objective || "",
+      },
+    });
 
-    campaignStore.set(campaign.id, campaign);
-    res.status(201).json(campaign);
+    res.status(201).json(toCampaign(row as any));
   } catch (error) {
     console.error("Campaign creation error:", error);
     res.status(500).json({ error: "Failed to create campaign" });
@@ -44,43 +55,63 @@ router.post("/", (req, res) => {
 });
 
 // GET / — List campaigns (optional filters: ?line=OPL&status=draft)
-router.get("/", (req, res) => {
-  let items = Array.from(campaignStore.values());
+router.get("/", async (req, res) => {
+  const where: Record<string, string> = {};
+  if (req.query.line) where.line = req.query.line as string;
+  if (req.query.status) where.status = req.query.status as string;
 
-  if (req.query.line) {
-    items = items.filter((c) => c.line === req.query.line);
-  }
-  if (req.query.status) {
-    items = items.filter((c) => c.status === req.query.status);
-  }
-
-  res.json(items);
+  const rows = await prisma.campaign.findMany({ where });
+  res.json(rows.map((r) => toCampaign(r as any)));
 });
 
 // GET /:id/export — Download ZIP
-router.get("/:id/export", (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
-  if (campaign.status !== "approved" && campaign.status !== "exported") {
+router.get("/:id/export", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (row.status !== "approved" && row.status !== "exported") {
     res.status(400).json({ error: "Campaign must be approved to export" }); return;
   }
-  campaign.status = "exported";
-  campaignStore.set(campaign.id, campaign);
+  await prisma.campaign.update({ where: { id: row.id }, data: { status: "exported" } });
+  const campaign = toCampaign({ ...row, status: "exported" } as any);
   streamZip(campaign, res);
 });
 
 // POST /:id/moodboard — Generate moodboard for a campaign
 router.post("/:id/moodboard", async (req, res) => {
   req.setTimeout(300000);
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   try {
-    console.log(`[moodboard] Generating for campaign ${campaign.id} (${campaign.line}), concept: "${campaign.concept}"`);
-    const moodboard = await generateMoodboard(campaign.id, campaign.concept, campaign.line, campaign.audience, campaign.objective);
+    console.log(`[moodboard] Generating for campaign ${row.id} (${row.line}), concept: "${row.concept}"`);
+    const moodboard = await generateMoodboard(row.id, row.concept, row.line, row.audience, row.objective);
     console.log(`[moodboard] Success — visual concept: "${moodboard.visualConcept}"`);
-    moodboardStore.set(campaign.id, moodboard);
-    res.json(moodboard);
+
+    const saved = await prisma.moodboard.upsert({
+      where: { campaignId: row.id },
+      create: {
+        campaignId: row.id,
+        visualConcept: moodboard.visualConcept,
+        photographyStyle: moodboard.photographyStyle,
+        colorEmphasis: moodboard.colorEmphasis,
+        typography: moodboard.typography,
+        mood: moodboard.mood,
+        imagePrompts: moodboard.imagePrompts,
+        htmlPreview: moodboard.htmlPreview,
+        status: moodboard.status,
+      },
+      update: {
+        visualConcept: moodboard.visualConcept,
+        photographyStyle: moodboard.photographyStyle,
+        colorEmphasis: moodboard.colorEmphasis,
+        typography: moodboard.typography,
+        mood: moodboard.mood,
+        imagePrompts: moodboard.imagePrompts,
+        htmlPreview: moodboard.htmlPreview,
+        status: moodboard.status,
+      },
+    });
+    res.json(toMoodboard(saved as any));
   } catch (error) {
     console.error("[moodboard] Error:", error instanceof Error ? error.message : error);
     res.status(500).json({ error: `Moodboard error: ${error instanceof Error ? error.message : "Unknown error"}` });
@@ -88,172 +119,169 @@ router.post("/:id/moodboard", async (req, res) => {
 });
 
 // GET /:id/moodboard — Get moodboard by campaign id
-router.get("/:id/moodboard", (req, res) => {
-  const moodboard = moodboardStore.get(req.params.id);
-  if (!moodboard) { res.status(404).json({ error: "Moodboard not found" }); return; }
-  res.json(moodboard);
+router.get("/:id/moodboard", async (req, res) => {
+  const row = await prisma.moodboard.findUnique({ where: { campaignId: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Moodboard not found" }); return; }
+  res.json(toMoodboard(row as any));
 });
 
 // PUT /:id/moodboard/approve — Approve moodboard
-router.put("/:id/moodboard/approve", (req, res) => {
-  const moodboard = moodboardStore.get(req.params.id);
-  if (!moodboard) { res.status(404).json({ error: "Moodboard not found" }); return; }
-  const approved: Moodboard = { ...moodboard, status: "approved" };
-  moodboardStore.set(req.params.id, approved);
-  res.json(approved);
+router.put("/:id/moodboard/approve", async (req, res) => {
+  const row = await prisma.moodboard.findUnique({ where: { campaignId: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Moodboard not found" }); return; }
+  const updated = await prisma.moodboard.update({
+    where: { campaignId: req.params.id },
+    data: { status: "approved" },
+  });
+  res.json(toMoodboard(updated as any));
 });
 
 // GET /:id — Get campaign detail
-router.get("/:id", (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-  res.json(campaign);
+router.get("/:id", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
+  res.json(toCampaign(row as any));
 });
 
 // POST /:id/analyze — Trigger Phase 1 (must be draft status)
 router.post("/:id/analyze", async (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-  if (campaign.status !== "draft") {
-    res.status(409).json({ error: "Campaign must be in draft status to analyze" });
-    return;
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (row.status !== "draft") {
+    res.status(409).json({ error: "Campaign must be in draft status to analyze" }); return;
   }
 
-  const planning: Campaign = { ...campaign, status: "planning", updatedAt: new Date().toISOString() };
-  campaignStore.set(planning.id, planning);
+  await prisma.campaign.update({ where: { id: row.id }, data: { status: "planning" } });
+  const planning = toCampaign({ ...row, status: "planning" } as any);
 
   try {
     const analyzed = await analyzeCampaignBrief(planning);
-    campaignStore.set(analyzed.id, analyzed);
-    res.json(analyzed);
+    const saved = await prisma.campaign.update({
+      where: { id: analyzed.id },
+      data: {
+        name: analyzed.name,
+        concept: analyzed.concept,
+        funnel: analyzed.funnel as any,
+        channels: analyzed.channels as any,
+        status: analyzed.status,
+      },
+    });
+    res.json(toCampaign(saved as any));
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Campaign analyze error:", msg);
-    const reset: Campaign = { ...planning, status: "draft", updatedAt: new Date().toISOString() };
-    campaignStore.set(reset.id, reset);
+    await prisma.campaign.update({ where: { id: row.id }, data: { status: "draft" } });
     res.status(500).json({ error: `Analyze failed: ${msg}` });
   }
 });
 
 // PUT /:id/plan — Modify plan (accepts channels, funnel in body)
-router.put("/:id/plan", (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
+router.put("/:id/plan", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   const { channels, funnel } = req.body;
-  const updated: Campaign = {
-    ...campaign,
-    ...(channels !== undefined && { channels }),
-    ...(funnel !== undefined && { funnel }),
-    updatedAt: new Date().toISOString(),
-  };
+  const data: Record<string, unknown> = {};
+  if (channels !== undefined) data.channels = channels;
+  if (funnel !== undefined) data.funnel = funnel;
 
-  campaignStore.set(updated.id, updated);
-  res.json(updated);
+  const updated = await prisma.campaign.update({ where: { id: row.id }, data });
+  res.json(toCampaign(updated as any));
 });
 
 // POST /:id/generate — Trigger Phase 2+3 (must be "planned" status)
 router.post("/:id/generate", async (req, res) => {
-  req.setTimeout(300000); // 5 minutes — generation makes many Claude API calls
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-  if (campaign.status !== "planned") {
-    res.status(409).json({ error: "Campaign must be in planned status to generate content" });
-    return;
+  req.setTimeout(300000);
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (row.status !== "planned") {
+    res.status(409).json({ error: "Campaign must be in planned status to generate content" }); return;
   }
 
-  const generating: Campaign = { ...campaign, status: "generating", updatedAt: new Date().toISOString() };
-  campaignStore.set(generating.id, generating);
+  await prisma.campaign.update({ where: { id: row.id }, data: { status: "generating" } });
+  const generating = toCampaign({ ...row, status: "generating" } as any);
 
   try {
-    console.log(`[generate] Starting generation for campaign ${campaign.id} with ${campaign.channels.length} channels...`);
-    const moodboard = moodboardStore.get(campaign.id);
+    console.log(`[generate] Starting generation for campaign ${row.id} with ${(row.channels as unknown[]).length} channels...`);
+    const moodboard = await prisma.moodboard.findUnique({ where: { campaignId: row.id } });
     let visualGuide: string | undefined;
     if (moodboard?.status === "approved") {
-      visualGuide = `GUÍA VISUAL DE CAMPAÑA:\n- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${moodboard.colorEmphasis.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
+      const colors = moodboard.colorEmphasis as string[];
+      visualGuide = `GUÍA VISUAL DE CAMPAÑA:\n- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${colors.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
     }
     const generated = await generateCampaignContent(generating, undefined, visualGuide);
-    console.log(`[generate] Completed! ${generated.channels.filter(c => c.status === "ready").length} channels ready`);
-    campaignStore.set(generated.id, generated);
-    res.json(generated);
+    console.log(`[generate] Completed! ${generated.channels.filter((c: ChannelPlan) => c.status === "ready").length} channels ready`);
+    const saved = await prisma.campaign.update({
+      where: { id: generated.id },
+      data: {
+        channels: generated.channels as any,
+        status: generated.status,
+      },
+    });
+    res.json(toCampaign(saved as any));
   } catch (error) {
     console.error("[generate] Campaign generate error:", error);
-    const reset: Campaign = { ...generating, status: "planned", updatedAt: new Date().toISOString() };
-    campaignStore.set(reset.id, reset);
+    await prisma.campaign.update({ where: { id: row.id }, data: { status: "planned" } });
     res.status(500).json({ error: "Failed to generate campaign content" });
   }
 });
 
-// PUT /:id/channels/:channelId/select — Select winning variant (just marks selection, no finalization)
-router.put("/:id/channels/:channelId/select", (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
+// PUT /:id/channels/:channelId/select — Select winning variant
+router.put("/:id/channels/:channelId/select", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   const { variantId } = req.body;
-  if (!variantId) {
-    res.status(400).json({ error: "Missing required field: variantId" });
-    return;
-  }
+  if (!variantId) { res.status(400).json({ error: "Missing required field: variantId" }); return; }
 
-  const channelIndex = campaign.channels.findIndex((ch) => ch.id === req.params.channelId);
-  if (channelIndex === -1) {
-    res.status(404).json({ error: "Channel not found" });
-    return;
-  }
+  const campaign = toCampaign(row as any);
+  const channelIndex = campaign.channels.findIndex((ch: ChannelPlan) => ch.id === req.params.channelId);
+  if (channelIndex === -1) { res.status(404).json({ error: "Channel not found" }); return; }
 
   const channel = campaign.channels[channelIndex];
-  const updatedVariants = channel.variants.map((v) => ({ ...v, selected: v.id === variantId }));
+  const updatedVariants = channel.variants.map((v: ContentVariant) => ({ ...v, selected: v.id === variantId }));
   const updatedChannel = { ...channel, variants: updatedVariants };
-
   const updatedChannels = [...campaign.channels];
   updatedChannels[channelIndex] = updatedChannel;
 
-  const updated: Campaign = { ...campaign, channels: updatedChannels, updatedAt: new Date().toISOString() };
-  campaignStore.set(updated.id, updated);
-  res.json(updated);
+  const saved = await prisma.campaign.update({
+    where: { id: row.id },
+    data: { channels: updatedChannels as any },
+  });
+  res.json(toCampaign(saved as any));
 });
 
 // POST /:id/channels/:channelId/finalize — Generate design + SEO + brand review for selected variant
 router.post("/:id/channels/:channelId/finalize", async (req, res) => {
   req.setTimeout(300000);
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
-  const channelIndex = campaign.channels.findIndex((ch) => ch.id === req.params.channelId);
+  const campaign = toCampaign(row as any);
+  const channelIndex = campaign.channels.findIndex((ch: ChannelPlan) => ch.id === req.params.channelId);
   if (channelIndex === -1) { res.status(404).json({ error: "Channel not found" }); return; }
 
-  const selected = campaign.channels[channelIndex].variants.find((v) => v.selected);
+  const selected = campaign.channels[channelIndex].variants.find((v: ContentVariant) => v.selected);
   if (!selected) { res.status(400).json({ error: "No variant selected — select a variant first" }); return; }
 
   try {
     console.log(`[finalize] Starting for ${campaign.channels[channelIndex].channel} (variant ${selected.label})`);
-    const moodboard = moodboardStore.get(campaign.id);
+    const moodboard = await prisma.moodboard.findUnique({ where: { campaignId: row.id } });
     let visualGuide: string | undefined;
     if (moodboard?.status === "approved") {
-      visualGuide = `- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${moodboard.colorEmphasis.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
+      const colors = moodboard.colorEmphasis as string[];
+      visualGuide = `- Concepto visual: ${moodboard.visualConcept}\n- Estilo fotográfico: ${moodboard.photographyStyle}\n- Énfasis de color: ${colors.join(", ")}\n- Tipografía: ${moodboard.typography}\n- Mood: ${moodboard.mood}`;
     }
 
     const finalized = await finalizeCampaignChannel(campaign, req.params.channelId, visualGuide);
     const updatedChannels = [...campaign.channels];
     updatedChannels[channelIndex] = finalized;
-    const updated: Campaign = { ...campaign, channels: updatedChannels, updatedAt: new Date().toISOString() };
-    campaignStore.set(updated.id, updated);
-    res.json(updated);
+
+    const saved = await prisma.campaign.update({
+      where: { id: row.id },
+      data: { channels: updatedChannels as any },
+    });
+    res.json(toCampaign(saved as any));
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`[finalize] Error: ${msg}`);
@@ -263,57 +291,56 @@ router.post("/:id/channels/:channelId/finalize", async (req, res) => {
 
 // POST /:id/channels/:channelId/regenerate — Retry failed channel
 router.post("/:id/channels/:channelId/regenerate", async (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
-  const channelIndex = campaign.channels.findIndex((ch) => ch.id === req.params.channelId);
-  if (channelIndex === -1) {
-    res.status(404).json({ error: "Channel not found" });
-    return;
-  }
+  const campaign = toCampaign(row as any);
+  const channelIndex = campaign.channels.findIndex((ch: ChannelPlan) => ch.id === req.params.channelId);
+  if (channelIndex === -1) { res.status(404).json({ error: "Channel not found" }); return; }
 
-  // Set the single channel status to generating
   const updatedChannels = [...campaign.channels];
   updatedChannels[channelIndex] = { ...updatedChannels[channelIndex], status: "generating" };
-  const generating: Campaign = { ...campaign, channels: updatedChannels, updatedAt: new Date().toISOString() };
-  campaignStore.set(generating.id, generating);
+  await prisma.campaign.update({
+    where: { id: row.id },
+    data: { channels: updatedChannels as any },
+  });
+
+  const generating = { ...campaign, channels: updatedChannels };
 
   try {
-    // Re-run generation for the full campaign but only the one channel is "generating"
-    // We temporarily isolate to a single-channel campaign for regeneration
     const singleChannelCampaign: Campaign = { ...generating, channels: [updatedChannels[channelIndex]] };
     const regenerated = await generateCampaignContent(singleChannelCampaign);
 
-    // Merge the regenerated channel back
-    const mergedChannels = [...generating.channels];
+    const mergedChannels = [...updatedChannels];
     mergedChannels[channelIndex] = regenerated.channels[0];
-    const result: Campaign = { ...generating, channels: mergedChannels, updatedAt: new Date().toISOString() };
-    campaignStore.set(result.id, result);
-    res.json(result);
+
+    const saved = await prisma.campaign.update({
+      where: { id: row.id },
+      data: { channels: mergedChannels as any },
+    });
+    res.json(toCampaign(saved as any));
   } catch (error) {
     console.error("Channel regenerate error:", error);
-    const errChannels = [...generating.channels];
+    const errChannels = [...updatedChannels];
     errChannels[channelIndex] = { ...errChannels[channelIndex], status: "error" };
-    const errCampaign: Campaign = { ...generating, channels: errChannels, updatedAt: new Date().toISOString() };
-    campaignStore.set(errCampaign.id, errCampaign);
+    await prisma.campaign.update({
+      where: { id: row.id },
+      data: { channels: errChannels as any },
+    });
     res.status(500).json({ error: "Failed to regenerate channel content" });
   }
 });
 
 // PUT /:id/approve — Approve entire campaign
-router.put("/:id/approve", (req, res) => {
-  const campaign = campaignStore.get(req.params.id);
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
+router.put("/:id/approve", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
 
-  const approved: Campaign = { ...campaign, status: "approved", updatedAt: new Date().toISOString() };
-  campaignStore.set(approved.id, approved);
-  res.json(approved);
+  const saved = await prisma.campaign.update({
+    where: { id: row.id },
+    data: { status: "approved" },
+  });
+  res.json(toCampaign(saved as any));
 });
 
 export { router as campaignRouter };

@@ -3,9 +3,19 @@ import { randomUUID } from "crypto";
 import http from "http";
 import type { IntelReport } from "../../shared/types.js";
 import { runMarketResearch, runInternalAnalysis } from "../agents/intel-orchestrator.js";
+import { prisma } from "../db.js";
 
 const router = Router();
-const reportStore: Map<string, IntelReport> = new Map();
+
+function toIntelReport(row: Record<string, unknown>): IntelReport {
+  return {
+    ...row,
+    trends: row.trends as IntelReport["trends"],
+    opportunities: row.opportunities as IntelReport["opportunities"],
+    sources: row.sources as IntelReport["sources"],
+    createdAt: (row.createdAt as Date).toISOString(),
+  } as IntelReport;
+}
 
 // Helper for internal HTTP calls
 function httpPost(url: string, body: unknown): Promise<unknown> {
@@ -36,6 +46,24 @@ function httpPost(url: string, body: unknown): Promise<unknown> {
   });
 }
 
+async function saveReport(report: IntelReport) {
+  return prisma.intelReport.create({
+    data: {
+      id: report.id,
+      type: report.type,
+      title: report.title,
+      summary: report.summary,
+      line: report.line,
+      query: report.query,
+      trends: report.trends as any,
+      opportunities: report.opportunities as any,
+      sources: report.sources as any,
+      errorMessage: report.errorMessage,
+      status: report.status,
+    },
+  });
+}
+
 // POST /research — run market research, store and return report
 router.post("/research", async (req, res) => {
   req.setTimeout(300000);
@@ -48,7 +76,7 @@ router.post("/research", async (req, res) => {
 
   try {
     const report = await runMarketResearch(query.trim(), line as never);
-    reportStore.set(report.id, report);
+    await saveReport(report);
     res.status(201).json(report);
   } catch (error) {
     console.error("[intel] Market research error:", error);
@@ -63,7 +91,7 @@ router.post("/internal-analysis", async (req, res) => {
 
   try {
     const report = await runInternalAnalysis(systemData);
-    reportStore.set(report.id, report);
+    await saveReport(report);
     res.status(201).json(report);
   } catch (error) {
     console.error("[intel] Internal analysis error:", error);
@@ -72,60 +100,45 @@ router.post("/internal-analysis", async (req, res) => {
 });
 
 // GET /reports — list with optional filters: type, line, status
-router.get("/reports", (req, res) => {
-  let items = Array.from(reportStore.values());
+router.get("/reports", async (req, res) => {
+  const where: Record<string, string> = {};
+  if (req.query.type) where.type = req.query.type as string;
+  if (req.query.line) where.line = req.query.line as string;
+  if (req.query.status) where.status = req.query.status as string;
 
-  if (req.query.type) {
-    items = items.filter((r) => r.type === req.query.type);
-  }
-  if (req.query.line) {
-    items = items.filter((r) => r.line === req.query.line);
-  }
-  if (req.query.status) {
-    items = items.filter((r) => r.status === req.query.status);
-  }
-
-  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  res.json(items);
+  const rows = await prisma.intelReport.findMany({ where, orderBy: { createdAt: "desc" } });
+  res.json(rows.map((r) => toIntelReport(r as any)));
 });
 
 // GET /reports/:id — detail, 404 if missing
-router.get("/reports/:id", (req, res) => {
-  const report = reportStore.get(req.params.id);
-  if (!report) {
-    res.status(404).json({ error: "Report not found" });
-    return;
-  }
-  res.json(report);
+router.get("/reports/:id", async (req, res) => {
+  const row = await prisma.intelReport.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Report not found" }); return; }
+  res.json(toIntelReport(row as any));
 });
 
 // POST /reports/:id/create-campaign — find opportunity, create + analyze campaign
 router.post("/reports/:id/create-campaign", async (req, res) => {
   req.setTimeout(300000);
-  const report = reportStore.get(req.params.id);
-  if (!report) {
-    res.status(404).json({ error: "Report not found" });
-    return;
-  }
+  const row = await prisma.intelReport.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Report not found" }); return; }
+
+  const report = toIntelReport(row as any);
 
   const { opportunityId } = req.body as { opportunityId?: string };
   if (!opportunityId) {
-    res.status(400).json({ error: "Missing required field: opportunityId" });
-    return;
+    res.status(400).json({ error: "Missing required field: opportunityId" }); return;
   }
 
-  const opportunity = report.opportunities.find((o) => o.id === opportunityId);
+  const opportunity = report.opportunities.find((o: any) => o.id === opportunityId);
   if (!opportunity) {
-    res.status(404).json({ error: "Opportunity not found in report" });
-    return;
+    res.status(404).json({ error: "Opportunity not found in report" }); return;
   }
 
   const PORT = process.env.PORT || 3001;
   const baseUrl = `http://localhost:${PORT}`;
 
   try {
-    // Create campaign
     const campaignPayload = {
       brief: opportunity.campaignBrief,
       line: opportunity.suggestedLine,
@@ -134,17 +147,17 @@ router.post("/reports/:id/create-campaign", async (req, res) => {
     };
 
     const campaign = await httpPost(`${baseUrl}/api/campaigns`, campaignPayload) as { id: string };
-
-    // Analyze campaign
     const analyzed = await httpPost(`${baseUrl}/api/campaigns/${campaign.id}/analyze`, {}) as { id: string };
 
-    // Link campaignId to opportunity in report
-    const updatedOpportunities = report.opportunities.map((o) =>
+    const updatedOpportunities = report.opportunities.map((o: any) =>
       o.id === opportunityId ? { ...o, campaignId: analyzed.id } : o
     );
-    const updatedReport: IntelReport = { ...report, opportunities: updatedOpportunities };
-    reportStore.set(report.id, updatedReport);
+    await prisma.intelReport.update({
+      where: { id: report.id },
+      data: { opportunities: updatedOpportunities as any },
+    });
 
+    const updatedReport = { ...report, opportunities: updatedOpportunities };
     res.status(201).json({ report: updatedReport, campaign: analyzed });
   } catch (error) {
     console.error("[intel] Create campaign from opportunity error:", error);
@@ -153,16 +166,15 @@ router.post("/reports/:id/create-campaign", async (req, res) => {
 });
 
 // PUT /reports/:id/archive — set status to "archived"
-router.put("/reports/:id/archive", (req, res) => {
-  const report = reportStore.get(req.params.id);
-  if (!report) {
-    res.status(404).json({ error: "Report not found" });
-    return;
-  }
+router.put("/reports/:id/archive", async (req, res) => {
+  const row = await prisma.intelReport.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Report not found" }); return; }
 
-  const archived: IntelReport = { ...report, status: "archived" };
-  reportStore.set(archived.id, archived);
-  res.json(archived);
+  const updated = await prisma.intelReport.update({
+    where: { id: row.id },
+    data: { status: "archived" },
+  });
+  res.json(toIntelReport(updated as any));
 });
 
 // POST /monthly — run research for all business lines + internal analysis
@@ -194,7 +206,7 @@ router.post("/monthly", async (req, res) => {
 
     for (const result of researchResults) {
       if (result.status === "fulfilled") {
-        reportStore.set(result.value.id, result.value);
+        await saveReport(result.value);
         reports.push(result.value);
       } else {
         console.error("[intel] Monthly research error:", result.reason);
@@ -211,13 +223,13 @@ router.post("/monthly", async (req, res) => {
           errorMessage: String(result.reason),
           createdAt: new Date().toISOString(),
         };
-        reportStore.set(errorReport.id, errorReport);
+        await saveReport(errorReport);
         reports.push(errorReport);
       }
     }
 
     if (internalResult) {
-      reportStore.set(internalResult.id, internalResult);
+      await saveReport(internalResult);
       reports.push(internalResult);
     }
 

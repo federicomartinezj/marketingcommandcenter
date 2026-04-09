@@ -1,29 +1,29 @@
 import { Router } from "express";
-import { randomUUID } from "crypto";
-import type { CampaignMetrics } from "../../shared/types.js";
+import { prisma } from "../db.js";
 
 const router = Router();
-const metricsStore: Map<string, CampaignMetrics> = new Map();
 
 // POST /campaigns/:campaignId/channels/:channelId — Report metrics
-router.post("/campaigns/:campaignId/channels/:channelId", (req, res) => {
+router.post("/campaigns/:campaignId/channels/:channelId", async (req, res) => {
   const { variantLabel, platform, metrics, notes } = req.body;
   if (!variantLabel || !platform || !metrics) {
     res.status(400).json({ error: "Missing required fields" }); return;
   }
-  const entry: CampaignMetrics = {
-    id: randomUUID(), campaignId: req.params.campaignId, channelId: req.params.channelId,
-    variantLabel, platform, metrics, notes, reportedAt: new Date().toISOString(),
-  };
-  metricsStore.set(entry.id, entry);
-  res.status(201).json(entry);
+  const entry = await prisma.campaignMetric.create({
+    data: {
+      campaignId: req.params.campaignId,
+      channelId: req.params.channelId,
+      variantLabel, platform, metrics, notes,
+    },
+  });
+  res.status(201).json({ ...entry, reportedAt: entry.reportedAt.toISOString() });
 });
 
 // GET / — List all metrics (optional campaignId filter)
-router.get("/", (req, res) => {
-  let items = Array.from(metricsStore.values());
-  if (req.query.campaignId) items = items.filter((m) => m.campaignId === req.query.campaignId);
-  res.json(items);
+router.get("/", async (req, res) => {
+  const where = req.query.campaignId ? { campaignId: req.query.campaignId as string } : {};
+  const items = await prisma.campaignMetric.findMany({ where });
+  res.json(items.map((m) => ({ ...m, reportedAt: m.reportedAt.toISOString() })));
 });
 
 export { router as metricsRouter };

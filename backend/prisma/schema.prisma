@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Campaign {
+  id        String   @id @default(uuid())
+  name      String   @default("")
+  brief     String
+  line      String
+  audience  String
+  objective String   @default("")
+  concept   String   @default("")
+  funnel    Json     @default("[]")
+  channels  Json     @default("[]")
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  moodboard Moodboard?
+  metrics   CampaignMetric[]
+}
+
+model Moodboard {
+  id               String   @id @default(uuid())
+  campaignId       String   @unique
+  visualConcept    String
+  photographyStyle String
+  colorEmphasis    Json     @default("[]")
+  typography       String
+  mood             String
+  imagePrompts     Json     @default("[]")
+  htmlPreview      String
+  status           String   @default("ready")
+  createdAt        DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+}
+
+model IntelReport {
+  id            String   @id @default(uuid())
+  type          String
+  title         String
+  summary       String
+  line          String?
+  query         String
+  trends        Json     @default("[]")
+  opportunities Json     @default("[]")
+  sources       Json     @default("[]")
+  errorMessage  String?
+  status        String   @default("ready")
+  createdAt     DateTime @default(now())
+}
+
+model CampaignMetric {
+  id           String   @id @default(uuid())
+  campaignId   String
+  channelId    String
+  variantLabel String
+  platform     String
+  metrics      Json
+  notes        String?
+  reportedAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+}
+
+model CalendarItem {
+  id        String   @id @default(uuid())
+  date      String
+  channel   String
+  line      String
+  title     String
+  status    String   @default("planned")
+  contentId String?
+  createdAt DateTime @default(now())
+}
+
+model Content {
+  id              String   @id @default(uuid())
+  type            String
+  title           String   @default("")
+  line            String
+  audience        String
+  status          String   @default("draft")
+  content         String   @default("")
+  designHtml      String?
+  brandReview     Json?
+  agentsInvolved  Json     @default("[]")
+  plan            Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model PerformanceReport {
+  id              String   @id @default(uuid())
+  title           String
+  summary         String
+  insights        Json     @default("[]")
+  linePerformance Json     @default("[]")
+  variantAnalysis Json     @default("[]")
+  recommendations Json     @default("[]")
+  createdAt       DateTime @default(now())
+}
