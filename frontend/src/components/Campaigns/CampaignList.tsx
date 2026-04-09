@@ -71,6 +71,15 @@ export function CampaignList() {
   const handleSelectVariant = async (campaignId: string, channelId: string, variantId: string) => {
     await campaignApi.selectVariant(campaignId, channelId, variantId);
     await fetchAll();
+    // Auto-finalize: generate HTML + SEO + Brand Review for selected variant
+    setFinalizingChannel(channelId);
+    try {
+      await campaignApi.finalizeChannel(campaignId, channelId);
+      await fetchAll();
+    } catch {
+      // Silent fail — user can retry manually
+    }
+    setFinalizingChannel(null);
   };
 
   if (campaigns.length === 0) {
@@ -242,6 +251,21 @@ export function CampaignList() {
                   </div>
                 )}
 
+                {/* Progress summary */}
+                {campaign.status === "review" && (() => {
+                  const total = campaign.channels.filter((ch) => ch.variants.length > 0).length;
+                  const selected = campaign.channels.filter((ch) => ch.variants.some((v) => v.selected)).length;
+                  const finalized = campaign.channels.filter((ch) => ch.designHtml || ch.brandReview).length;
+                  const finalizing = finalizingChannel ? 1 : 0;
+                  return (
+                    <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                      <span className="font-semibold">Progreso:</span> {selected}/{total} variantes seleccionadas · {finalized}/{total} piezas finalizadas
+                      {finalizing > 0 && <span className="animate-pulse"> · Generando pieza...</span>}
+                      {finalized === total && total > 0 && <span className="text-green-600 font-semibold"> · ¡Listo para aprobar!</span>}
+                    </div>
+                  );
+                })()}
+
                 {/* Actions */}
                 <div className="flex gap-3 pt-2">
                   {campaign.status === "planned" && (
@@ -250,17 +274,21 @@ export function CampaignList() {
                       disabled={isGenerating}
                       className="bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 disabled:opacity-50"
                     >
-                      {isGenerating ? "Generando contenido..." : "Generar Contenido"}
+                      {isGenerating ? "Generando variantes de copy..." : "Generar Variantes de Copy"}
                     </button>
                   )}
-                  {(campaign.status === "review" || campaign.status === "generating") && (
-                    <button
-                      onClick={() => handleApprove(campaign.id)}
-                      className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700"
-                    >
-                      Aprobar Campaña
-                    </button>
-                  )}
+                  {(campaign.status === "review" || campaign.status === "generating") && (() => {
+                    const allFinalized = campaign.channels.every((ch) => ch.variants.length === 0 || (ch.designHtml || ch.brandReview));
+                    return (
+                      <button
+                        onClick={() => handleApprove(campaign.id)}
+                        disabled={!allFinalized}
+                        className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {allFinalized ? "Aprobar Campaña" : "Selecciona variantes para aprobar"}
+                      </button>
+                    );
+                  })()}
                   {(campaign.status === "approved" || campaign.status === "exported") && (
                     <a
                       href={campaignApi.exportUrl(campaign.id)}
