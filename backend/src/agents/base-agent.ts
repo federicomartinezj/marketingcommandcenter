@@ -17,7 +17,12 @@ export interface AgentInput {
 export interface AgentOutput {
   role: AgentRole;
   content: string;
+  truncated: boolean;
 }
+
+const TOKEN_LIMITS: Partial<Record<AgentRole, number>> = {
+  designer: 16384,
+};
 
 export class BaseAgent {
   private client: Anthropic;
@@ -33,17 +38,23 @@ export class BaseAgent {
   }
 
   async run(input: AgentInput): Promise<AgentOutput> {
-    // Import dynamically to avoid circular deps
     const { loadAllBrandContext } = await import("../brand/loader.js");
     const brandContext = await loadAllBrandContext(input.line);
     const systemPrompt = this.config.buildSystemPrompt(brandContext);
 
+    const maxTokens = TOKEN_LIMITS[this.config.role] ?? 8192;
+
     const response = await this.client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8192,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: input.userMessage }],
     });
+
+    const truncated = response.stop_reason === "max_tokens";
+    if (truncated) {
+      console.warn(`[${this.config.role}] Response truncated at ${maxTokens} tokens`);
+    }
 
     const textContent = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -53,6 +64,7 @@ export class BaseAgent {
     return {
       role: this.config.role,
       content: textContent,
+      truncated,
     };
   }
 }

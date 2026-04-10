@@ -126,38 +126,77 @@ export async function finalizeCampaignChannel(
   // Generate design HTML for selected variant
   let designHtml: string | undefined;
   if (needsDesigner(channel.channel)) {
-    const designResult = await designerAgent.run({
-      line: campaign.line,
-      userMessage: `Genera HTML/CSS para ${channel.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${selected.content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
-    });
-    designHtml = designResult.content;
+    try {
+      const designResult = await designerAgent.run({
+        line: campaign.line,
+        userMessage: `Genera HTML/CSS para ${channel.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${selected.content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas. Responde SOLO con HTML, sin explicaciones.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
+      });
+
+      const html = designResult.content?.trim();
+      if (!html) {
+        console.error(`[finalize] Designer returned empty response for ${channel.channel}`);
+      } else if (!html.includes("<")) {
+        console.error(`[finalize] Designer did not return HTML for ${channel.channel}: "${html.substring(0, 150)}"`);
+      } else if (designResult.truncated) {
+        // Try to close any unclosed tags for truncated responses
+        console.warn(`[finalize] Designer response truncated for ${channel.channel}, attempting to salvage`);
+        designHtml = html + "\n</div></body></html>";
+      } else {
+        designHtml = html;
+      }
+    } catch (err) {
+      console.error(`[finalize] Designer error for ${channel.channel}:`, err instanceof Error ? err.message : err);
+    }
   }
 
   // SEO optimization for selected variant
   let seoOptimization;
   if (needsSEO(channel.channel)) {
-    const seoResult = await seoSpecialistAgent.run({
-      line: campaign.line,
-      userMessage: `Optimiza este contenido para SEO:\n\nTipo: ${channel.channel}\nLínea: ${campaign.line}\nAudiencia: ${campaign.audience}\n\nContenido:\n${selected.content}`,
-    });
-    seoOptimization = parseSEOOutput(seoResult.content);
+    try {
+      const seoResult = await seoSpecialistAgent.run({
+        line: campaign.line,
+        userMessage: `Optimiza este contenido para SEO:\n\nTipo: ${channel.channel}\nLínea: ${campaign.line}\nAudiencia: ${campaign.audience}\n\nContenido:\n${selected.content}`,
+      });
+      seoOptimization = parseSEOOutput(seoResult.content);
+    } catch (err) {
+      console.error(`[finalize] SEO error for ${channel.channel}:`, err instanceof Error ? err.message : err);
+    }
   }
 
   // Brand Guardian review of selected variant
-  const reviewResult = await brandGuardianAgent.run({
-    line: campaign.line,
-    userMessage: buildReviewMessage({ content: selected.content, line: campaign.line, contentType: channel.channel, audience: campaign.audience }),
-  });
-  const brandReview = parseBrandReview(reviewResult.content);
+  let brandReview;
+  try {
+    const reviewResult = await brandGuardianAgent.run({
+      line: campaign.line,
+      userMessage: buildReviewMessage({ content: selected.content, line: campaign.line, contentType: channel.channel, audience: campaign.audience }),
+    });
+    brandReview = parseBrandReview(reviewResult.content);
+  } catch (err) {
+    console.error(`[finalize] Brand review error for ${channel.channel}:`, err instanceof Error ? err.message : err);
+    brandReview = {
+      approved: false,
+      score: 0,
+      checks: [{ name: "Error", passed: false, detail: `Brand review failed: ${err instanceof Error ? err.message : String(err)}`, severity: "error" as const }],
+      reviewedAt: new Date().toISOString(),
+    };
+  }
 
-  console.log(`[finalize] Done — ${channel.channel} brand score: ${brandReview.score}`);
+  const errors: string[] = [];
+  if (needsDesigner(channel.channel) && !designHtml) errors.push("HTML no generado");
+  if (needsSEO(channel.channel) && !seoOptimization) errors.push("SEO no generado");
+
+  if (errors.length > 0) {
+    console.warn(`[finalize] ${channel.channel} completed with issues: ${errors.join(", ")}`);
+  }
+
+  console.log(`[finalize] Done — ${channel.channel} | HTML: ${designHtml ? "OK" : "MISSING"} | SEO: ${seoOptimization ? "OK" : "N/A"} | Brand: ${brandReview.score}/100`);
 
   return {
     ...channel,
     designHtml,
     seoOptimization,
     brandReview,
-    status: "approved",
+    status: designHtml || !needsDesigner(channel.channel) ? "approved" : "error",
   };
 }
 

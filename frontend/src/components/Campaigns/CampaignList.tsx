@@ -21,6 +21,7 @@ export function CampaignList() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [metricsChannel, setMetricsChannel] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchAll = async () => {
     const data = await campaignApi.list();
@@ -73,11 +74,15 @@ export function CampaignList() {
     await fetchAll();
     // Auto-finalize: generate HTML + SEO + Brand Review for selected variant
     setFinalizingChannel(channelId);
+    setErrorMsg(null);
     try {
       await campaignApi.finalizeChannel(campaignId, channelId);
       await fetchAll();
-    } catch {
-      // Silent fail — user can retry manually
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[finalize] Error: ${msg}`);
+      setErrorMsg(`Error generando pieza para este canal: ${msg}. Puedes reintentar con el botón "Generar Pieza Final".`);
+      await fetchAll();
     }
     setFinalizingChannel(null);
   };
@@ -95,6 +100,13 @@ export function CampaignList() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-near-black">Campañas</h1>
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+          <span className="text-sm text-red-700">{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600 ml-3">&times;</button>
+        </div>
+      )}
 
       {campaigns.map((campaign) => {
         const status = STATUS_LABELS[campaign.status] || STATUS_LABELS.draft;
@@ -177,7 +189,7 @@ export function CampaignList() {
                             </div>
                           )}
                           {/* Finalize button — generates design + SEO + brand review for selected variant */}
-                          {channel.variants.some((v) => v.selected) && !channel.designHtml && !channel.brandReview && (
+                          {channel.variants.some((v) => v.selected) && (
                             <div className="px-3 pb-3">
                               {finalizingChannel === channel.id ? (
                                 <div className="bg-yellow-50 rounded-lg p-3 text-center">
@@ -185,14 +197,18 @@ export function CampaignList() {
                                     Generando diseño HTML + SEO + Brand Review para variante seleccionada...
                                   </span>
                                 </div>
-                              ) : (
+                              ) : !channel.designHtml ? (
                                 <button
                                   onClick={() => handleFinalize(campaign.id, channel.id)}
-                                  className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+                                  className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                    channel.status === "error"
+                                      ? "bg-red-500 text-white hover:bg-red-600"
+                                      : "bg-green-600 text-white hover:bg-green-700"
+                                  }`}
                                 >
-                                  Generar Pieza Final (HTML + SEO + Brand Review)
+                                  {channel.status === "error" ? "Reintentar Pieza Final" : "Generar Pieza Final (HTML + SEO + Brand Review)"}
                                 </button>
-                              )}
+                              ) : null}
                             </div>
                           )}
                           {/* Finalized badge + download */}
