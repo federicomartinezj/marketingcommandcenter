@@ -211,35 +211,39 @@ export function CampaignList() {
                               ) : null}
                             </div>
                           )}
-                          {/* Finalized badge + download */}
-                          {channel.designHtml && (
-                            <div className="px-3 pb-2 flex items-center gap-3">
-                              {channel.brandReview && (
+                          {/* Download buttons — show as soon as content exists */}
+                          {(channel.designHtml || channel.variants.some((v) => v.selected)) && (
+                            <div className="px-3 pb-2 flex items-center gap-3 flex-wrap">
+                              {channel.designHtml && channel.brandReview && (
                                 <span className="text-xs text-green-600 font-medium">✓ Pieza finalizada</span>
                               )}
-                              <button
-                                onClick={() => {
-                                  const w = window.open("", "_blank");
-                                  if (w) { w.document.write(channel.designHtml!); w.document.close(); }
-                                }}
-                                className="text-xs text-blue-500 hover:text-blue-700 font-medium"
-                              >
-                                Ver HTML
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const blob = new Blob([channel.designHtml!], { type: "text/html" });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `${campaign.name || "campaign"}-${channel.channel}-${channel.funnelStage}.html`;
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                }}
-                                className="text-xs text-green-600 hover:text-green-800 font-medium"
-                              >
-                                Descargar HTML
-                              </button>
+                              {channel.designHtml && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      const w = window.open("", "_blank");
+                                      if (w) { w.document.write(channel.designHtml!); w.document.close(); }
+                                    }}
+                                    className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-full font-medium transition-colors"
+                                  >
+                                    Ver HTML
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const blob = new Blob([channel.designHtml!], { type: "text/html" });
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = `${campaign.name || "campaign"}-${channel.channel}-${channel.funnelStage}.html`;
+                                      a.click();
+                                      URL.revokeObjectURL(url);
+                                    }}
+                                    className="text-xs bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1 rounded-full font-medium transition-colors"
+                                  >
+                                    Descargar HTML
+                                  </button>
+                                </>
+                              )}
                               {channel.variants.find((v) => v.selected) && (
                                 <button
                                   onClick={() => {
@@ -253,7 +257,7 @@ export function CampaignList() {
                                     a.click();
                                     URL.revokeObjectURL(url);
                                   }}
-                                  className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                                  className="text-xs bg-purple-50 text-purple-600 hover:bg-purple-100 px-3 py-1 rounded-full font-medium transition-colors"
                                 >
                                   Descargar Copy
                                 </button>
