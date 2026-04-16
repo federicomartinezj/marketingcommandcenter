@@ -22,7 +22,7 @@ export interface AgentOutput {
 
 // Agents that need maximum quality use Sonnet; structured/simple tasks use Haiku
 const MODEL_MAP: Partial<Record<AgentRole, string>> = {
-  designer: "claude-sonnet-4-6",
+  designer: "claude-opus-4-6",
   copywriter: "claude-sonnet-4-6",
   "social-media-manager": "claude-sonnet-4-6",
   "ux-strategist": "claude-sonnet-4-6",
