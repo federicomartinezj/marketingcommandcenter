@@ -20,6 +20,19 @@ export interface AgentOutput {
   truncated: boolean;
 }
 
+// Agents that need maximum quality use Sonnet; structured/simple tasks use Haiku
+const MODEL_MAP: Partial<Record<AgentRole, string>> = {
+  designer: "claude-sonnet-4-6",
+  copywriter: "claude-sonnet-4-6",
+  "social-media-manager": "claude-sonnet-4-6",
+  "ux-strategist": "claude-sonnet-4-6",
+  // These do structured JSON output or simple analysis — Haiku is sufficient
+  "seo-specialist": "claude-haiku-4-5-20251001",
+  "brand-guardian": "claude-haiku-4-5-20251001",
+  "data-analyst": "claude-haiku-4-5-20251001",
+  "competitive-intel": "claude-sonnet-4-6",
+};
+
 const TOKEN_LIMITS: Partial<Record<AgentRole, number>> = {
   designer: 16384,
 };
@@ -38,14 +51,15 @@ export class BaseAgent {
   }
 
   async run(input: AgentInput): Promise<AgentOutput> {
-    const { loadAllBrandContext } = await import("../brand/loader.js");
-    const brandContext = await loadAllBrandContext(input.line);
+    const { loadBrandContextForRole } = await import("../brand/loader.js");
+    const brandContext = await loadBrandContextForRole(input.line, this.config.role);
     const systemPrompt = this.config.buildSystemPrompt(brandContext);
 
     const maxTokens = TOKEN_LIMITS[this.config.role] ?? 8192;
+    const model = MODEL_MAP[this.config.role] ?? "claude-sonnet-4-6";
 
     const response = await this.client.messages.create({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: input.userMessage }],
@@ -53,7 +67,7 @@ export class BaseAgent {
 
     const truncated = response.stop_reason === "max_tokens";
     if (truncated) {
-      console.warn(`[${this.config.role}] Response truncated at ${maxTokens} tokens`);
+      console.warn(`[${this.config.role}] Response truncated at ${maxTokens} tokens (model: ${model})`);
     }
 
     const textContent = response.content

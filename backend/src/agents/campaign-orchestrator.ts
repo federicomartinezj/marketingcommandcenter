@@ -115,10 +115,10 @@ export async function finalizeCampaignChannel(
   channelId: string,
   visualGuide?: string
 ): Promise<ChannelPlan> {
-  const channel = campaign.channels.find((ch) => ch.id === channelId);
+  const channel = campaign.channels.find((ch: ChannelPlan) => ch.id === channelId);
   if (!channel) throw new Error("Channel not found");
 
-  const selected = channel.variants.find((v) => v.selected);
+  const selected = channel.variants.find((v: { selected: boolean }) => v.selected);
   if (!selected) throw new Error("No variant selected");
 
   console.log(`[finalize] Generating design + SEO + brand review for ${channel.channel} (variant ${selected.label})`);
