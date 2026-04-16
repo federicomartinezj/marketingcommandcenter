@@ -157,11 +157,12 @@ El htmlPreview debe ser un collage visual que muestre:
 - IMPORTANTE: Texto visible (blanco sobre oscuro o viceversa)
 
 ## INSTRUCCIONES DE OUTPUT:
-- Genera código HTML/CSS inline completo y auto-contenido
+- Genera código HTML/CSS completo y auto-contenido
 - Usa Google Fonts link para Manrope
 - El HTML debe poder renderizarse directamente en un navegador
-- Incluye todos los estilos inline (para compatibilidad con email y previews)
+- USA UN BLOQUE <style> EN EL <head> — NO estilos inline repetidos. Usa clases CSS. Esto es CRÍTICO para mantener el HTML compacto.
 - Para social cards: genera un div con dimensiones fijas que sirva como mockup visual
+- Para landing pages: máximo 4-5 secciones (hero, beneficios, social proof, CTA, footer). NO generes secciones extra innecesarias. Sé conciso.
 - Donde se necesite imagen de fondo, usa un placeholder de color sólido + el IMAGE_PROMPT en comentario HTML
 - Responde SOLO con el código HTML, sin explicaciones adicionales
 `;

@@ -34,7 +34,7 @@ const MODEL_MAP: Partial<Record<AgentRole, string>> = {
 };
 
 const TOKEN_LIMITS: Partial<Record<AgentRole, number>> = {
-  designer: 16384,
+  designer: 32768,
 };
 
 export class BaseAgent {
