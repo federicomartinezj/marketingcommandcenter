@@ -331,7 +331,7 @@ router.post("/:id/channels/:channelId/regenerate", async (req, res) => {
   }
 });
 
-// PUT /:id/approve — Approve entire campaign
+// PUT /:id/approve — Approve entire campaign + populate Content & Calendar
 router.put("/:id/approve", async (req, res) => {
   const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
   if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
@@ -340,7 +340,56 @@ router.put("/:id/approve", async (req, res) => {
     where: { id: row.id },
     data: { status: "approved" },
   });
-  res.json(toCampaign(saved as any));
+
+  const campaign = toCampaign(saved as any);
+
+  // Sync approved channels to Content and Calendar tables
+  try {
+    const today = new Date();
+    let dayOffset = 0;
+
+    for (const channel of campaign.channels) {
+      const selected = channel.variants.find((v: ContentVariant) => v.selected);
+      if (!selected) continue;
+
+      // Create Content entry
+      await prisma.content.create({
+        data: {
+          type: channel.channel,
+          title: `${campaign.name} — ${channel.channel} (${channel.funnelStage})`,
+          line: campaign.line,
+          audience: campaign.audience,
+          status: "approved",
+          content: selected.content,
+          designHtml: channel.designHtml,
+          brandReview: channel.brandReview ? toJson(channel.brandReview) : undefined,
+          agentsInvolved: ["copywriter", "designer", "brand-guardian"] as any,
+        },
+      });
+
+      // Create Calendar entry — spread channels across upcoming days
+      const date = new Date(today);
+      date.setDate(date.getDate() + dayOffset);
+      const dateStr = date.toISOString().split("T")[0];
+      dayOffset += 2; // space channels 2 days apart
+
+      await prisma.calendarItem.create({
+        data: {
+          date: dateStr,
+          channel: channel.channel,
+          line: campaign.line,
+          title: `${campaign.name} — ${channel.channel}`,
+          status: "planned",
+        },
+      });
+    }
+    console.log(`[approve] Synced ${campaign.channels.length} channels to Content + Calendar`);
+  } catch (err) {
+    // Don't fail the approval if sync has issues
+    console.error("[approve] Error syncing to Content/Calendar:", err);
+  }
+
+  res.json(campaign);
 });
 
 export { router as campaignRouter };
