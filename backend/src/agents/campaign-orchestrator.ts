@@ -127,9 +127,32 @@ export async function finalizeCampaignChannel(
   let designHtml: string | undefined;
   if (needsDesigner(channel.channel)) {
     try {
+      const isLandingPage = channel.channel === "landing-page";
+      const designPrompt = isLandingPage
+        ? `Genera una landing page HTML para la línea ${campaign.line}.
+Concepto: ${campaign.concept}
+Audiencia: ${campaign.audience}
+
+CONTENIDO (úsalo tal cual, NO inventes contenido nuevo):
+${selected.content}
+
+REGLAS ESTRICTAS PARA LANDING PAGE:
+- Máximo 4 secciones: Hero + Beneficios + Social Proof + CTA
+- USA <style> en el <head> con clases CSS — NO estilos inline
+- Ancho máximo: 960px centrado
+- Incluye 1-2 IMAGE_PROMPT en comentarios HTML
+- Responde SOLO con el HTML, NADA más
+${visualGuide ? `\nGUÍA VISUAL:\n${visualGuide}` : ""}`
+        : `Genera HTML/CSS para ${channel.channel} de la línea ${campaign.line}.
+Concepto de campaña: ${campaign.concept}
+Audiencia: ${campaign.audience}
+Contenido base: ${selected.content}
+
+IMPORTANTE: Texto VISIBLE (contraste correcto). Donde se necesite fotografía, incluye IMAGE_PROMPT en comentario HTML. USA <style> con clases, NO inline. Responde SOLO con HTML.${visualGuide ? `\n\nGUÍA VISUAL:\n${visualGuide}` : ""}`;
+
       const designResult = await designerAgent.run({
         line: campaign.line,
-        userMessage: `Genera HTML/CSS para ${channel.channel} de la línea ${campaign.line}.\nConcepto de campaña: ${campaign.concept}\nAudiencia: ${campaign.audience}\nContenido base: ${selected.content}\n\nIMPORTANTE: Asegúrate de que el texto sea VISIBLE (texto blanco sobre fondo oscuro, o texto oscuro sobre fondo claro). Donde se necesite una fotografía, incluye un IMAGE_PROMPT en comentario HTML con un prompt en inglés optimizado para generación de imágenes fotorrealistas. Responde SOLO con HTML, sin explicaciones.${visualGuide ? `\n\nGUÍA VISUAL DE CAMPAÑA (aplica este estilo):\n${visualGuide}` : ""}`,
+        userMessage: designPrompt,
       });
 
       const html = designResult.content?.trim();
@@ -138,9 +161,14 @@ export async function finalizeCampaignChannel(
       } else if (!html.includes("<")) {
         console.error(`[finalize] Designer did not return HTML for ${channel.channel}: "${html.substring(0, 150)}"`);
       } else if (designResult.truncated) {
-        // Try to close any unclosed tags for truncated responses
-        console.warn(`[finalize] Designer response truncated for ${channel.channel}, attempting to salvage`);
-        designHtml = html + "\n</div></body></html>";
+        console.warn(`[finalize] Designer response truncated for ${channel.channel} (${html.length} chars)`);
+        // If it has a reasonable amount of content, salvage it; otherwise discard
+        if (html.length > 2000 && html.includes("</")) {
+          designHtml = html + "\n</div></body></html>";
+          console.log(`[finalize] Salvaged truncated HTML for ${channel.channel}`);
+        } else {
+          console.error(`[finalize] Truncated HTML too short/broken for ${channel.channel}, discarding`);
+        }
       } else {
         designHtml = html;
       }
