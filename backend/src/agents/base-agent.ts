@@ -34,8 +34,11 @@ const MODEL_MAP: Partial<Record<AgentRole, string>> = {
 };
 
 const TOKEN_LIMITS: Partial<Record<AgentRole, number>> = {
-  designer: 32768,
+  designer: 16384,
 };
+
+// Roles that need streaming (long responses that may exceed API timeout)
+const USE_STREAMING = new Set<AgentRole>(["designer"]);
 
 export class BaseAgent {
   private client: Anthropic;
@@ -58,6 +61,10 @@ export class BaseAgent {
     const maxTokens = TOKEN_LIMITS[this.config.role] ?? 8192;
     const model = MODEL_MAP[this.config.role] ?? "claude-sonnet-4-6";
 
+    if (USE_STREAMING.has(this.config.role)) {
+      return this.runStreaming(systemPrompt, input.userMessage, model, maxTokens);
+    }
+
     const response = await this.client.messages.create({
       model,
       max_tokens: maxTokens,
@@ -75,10 +82,29 @@ export class BaseAgent {
       .map((block) => block.text)
       .join("\n");
 
-    return {
-      role: this.config.role,
-      content: textContent,
-      truncated,
-    };
+    return { role: this.config.role, content: textContent, truncated };
+  }
+
+  private async runStreaming(systemPrompt: string, userMessage: string, model: string, maxTokens: number): Promise<AgentOutput> {
+    const stream = this.client.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    const response = await stream.finalMessage();
+
+    const truncated = response.stop_reason === "max_tokens";
+    if (truncated) {
+      console.warn(`[${this.config.role}] Streamed response truncated at ${maxTokens} tokens (model: ${model})`);
+    }
+
+    const textContent = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
+
+    return { role: this.config.role, content: textContent, truncated };
   }
 }
