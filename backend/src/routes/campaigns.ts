@@ -251,6 +251,33 @@ router.put("/:id/channels/:channelId/select", async (req, res) => {
   res.json(toCampaign(saved as any));
 });
 
+// PUT /:id/channels/:channelId/variants/:variantId — Edit variant content
+router.put("/:id/channels/:channelId/variants/:variantId", async (req, res) => {
+  const row = await prisma.campaign.findUnique({ where: { id: req.params.id } });
+  if (!row) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  const { content } = req.body;
+  if (typeof content !== "string") { res.status(400).json({ error: "Missing required field: content" }); return; }
+
+  const campaign = toCampaign(row as any);
+  const channelIndex = campaign.channels.findIndex((ch: ChannelPlan) => ch.id === req.params.channelId);
+  if (channelIndex === -1) { res.status(404).json({ error: "Channel not found" }); return; }
+
+  const variantIndex = campaign.channels[channelIndex].variants.findIndex((v: ContentVariant) => v.id === req.params.variantId);
+  if (variantIndex === -1) { res.status(404).json({ error: "Variant not found" }); return; }
+
+  const updatedChannels = [...campaign.channels];
+  const updatedVariants = [...updatedChannels[channelIndex].variants];
+  updatedVariants[variantIndex] = { ...updatedVariants[variantIndex], content };
+  updatedChannels[channelIndex] = { ...updatedChannels[channelIndex], variants: updatedVariants };
+
+  const saved = await prisma.campaign.update({
+    where: { id: row.id },
+    data: { channels: updatedChannels as any },
+  });
+  res.json(toCampaign(saved as any));
+});
+
 // POST /:id/channels/:channelId/finalize — Generate design + SEO + brand review for selected variant
 router.post("/:id/channels/:channelId/finalize", async (req, res) => {
   req.setTimeout(300000);

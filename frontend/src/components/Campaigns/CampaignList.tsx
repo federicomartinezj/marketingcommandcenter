@@ -22,6 +22,7 @@ export function CampaignList() {
   const [loading, setLoading] = useState<string | null>(null);
   const [metricsChannel, setMetricsChannel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [previewChannel, setPreviewChannel] = useState<string | null>(null);
 
   const fetchAll = async () => {
     const data = await campaignApi.list();
@@ -85,6 +86,15 @@ export function CampaignList() {
       await fetchAll();
     }
     setFinalizingChannel(null);
+  };
+
+  const handleEditVariant = async (campaignId: string, channelId: string, variantId: string, content: string) => {
+    try {
+      await campaignApi.editVariant(campaignId, channelId, variantId, content);
+      await fetchAll();
+    } catch (err) {
+      alert(`Error guardando: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   if (campaigns.length === 0) {
@@ -185,6 +195,7 @@ export function CampaignList() {
                               <VariantSelector
                                 variants={channel.variants}
                                 onSelect={(variantId) => handleSelectVariant(campaign.id, channel.id, variantId)}
+                                onEdit={(variantId, content) => handleEditVariant(campaign.id, channel.id, variantId, content)}
                               />
                             </div>
                           )}
@@ -220,13 +231,23 @@ export function CampaignList() {
                               {channel.designHtml && (
                                 <>
                                   <button
+                                    onClick={() => setPreviewChannel(previewChannel === channel.id ? null : channel.id)}
+                                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                                      previewChannel === channel.id
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                    }`}
+                                  >
+                                    {previewChannel === channel.id ? "Ocultar Preview" : "Ver Preview"}
+                                  </button>
+                                  <button
                                     onClick={() => {
                                       const w = window.open("", "_blank");
                                       if (w) { w.document.write(channel.designHtml!); w.document.close(); }
                                     }}
-                                    className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-full font-medium transition-colors"
+                                    className="text-xs bg-gray-50 text-gray-500 hover:bg-gray-100 px-3 py-1 rounded-full font-medium transition-colors"
                                   >
-                                    Ver HTML
+                                    Abrir en pestaña
                                   </button>
                                   <button
                                     onClick={() => {
@@ -262,6 +283,24 @@ export function CampaignList() {
                                   Descargar Copy
                                 </button>
                               )}
+                            </div>
+                          )}
+                          {/* HTML Preview inline */}
+                          {channel.designHtml && previewChannel === channel.id && (
+                            <div className="px-3 pb-3">
+                              <div className="border rounded-lg overflow-hidden bg-white">
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b">
+                                  <span className="text-xs text-gray-500 font-medium">Preview</span>
+                                  <span className="text-xs text-gray-400">{channel.channel} — {channel.funnelStage}</span>
+                                </div>
+                                <iframe
+                                  srcDoc={channel.designHtml}
+                                  title={`Preview ${channel.channel}`}
+                                  className="w-full border-0"
+                                  style={{ height: channel.channel === "landing-page" ? "600px" : "400px" }}
+                                  sandbox="allow-same-origin"
+                                />
+                              </div>
                             </div>
                           )}
                           {/* Image Prompts extracted from designHtml */}
